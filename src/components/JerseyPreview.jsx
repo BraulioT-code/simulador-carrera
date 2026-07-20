@@ -3,8 +3,10 @@
  * kit: { body, trim, text } — ver src/data/kits.js
  */
 export default function JerseyPreview({ surname, number, kit }) {
-  const name = (surname || "APELLIDO").toUpperCase();
-  const fontSize = name.length > 11 ? 15 : name.length > 8 ? 18 : 21;
+  const name = (surname || "APELLIDO").toUpperCase().slice(0, 14);
+  // Tamaño y espaciado adaptados para que el apellido nunca desborde la camiseta
+  const fontSize = name.length > 12 ? 11 : name.length > 10 ? 13 : name.length > 8 ? 16 : 20;
+  const tracking = name.length > 10 ? 0.4 : name.length > 8 ? 1 : 1.8;
   const { body, trim, text } = kit || { body: "#f4f4f5", trim: "#18181b", text: "#18181b" };
 
   return (
@@ -23,23 +25,23 @@ export default function JerseyPreview({ surname, number, kit }) {
       {/* cuerpo */}
       <path
         d="M92 26
-           C 78 30 64 36 56 44
-           C 42 58 32 76 28 94
-           C 27 99 29 104 34 106
-           L 66 118
-           C 71 120 76 117 78 112
-           L 80 100
-           L 80 196
-           C 80 203 85 208 92 208
-           L 148 208
-           C 155 208 160 203 160 196
-           L 160 100
-           L 162 112
-           C 164 117 169 120 174 118
-           L 206 106
-           C 211 104 213 99 212 94
-           C 208 76 198 58 184 44
-           C 176 36 162 30 148 26
+           C 79 30 67 36 59 44
+           C 51 56 45 73 42 89
+           C 41 94 43 99 48 101
+           L 67 109
+           C 71 111 75 108 76 104
+           L 72 95
+           L 72 196
+           C 72 203 77 208 84 208
+           L 156 208
+           C 163 208 168 203 168 196
+           L 168 95
+           L 164 104
+           C 165 108 169 111 173 109
+           L 192 101
+           C 197 99 199 94 198 89
+           C 195 73 189 56 181 44
+           C 173 36 161 30 148 26
            C 141 38 99 38 92 26 Z"
         fill={body}
       />
@@ -47,30 +49,30 @@ export default function JerseyPreview({ surname, number, kit }) {
       {/* sheen / volumen */}
       <path
         d="M92 26
-           C 78 30 64 36 56 44
-           C 42 58 32 76 28 94
-           C 27 99 29 104 34 106
-           L 66 118
-           C 71 120 76 117 78 112
-           L 80 100
-           L 80 196
-           C 80 203 85 208 92 208
-           L 148 208
-           C 155 208 160 203 160 196
-           L 160 100
-           L 162 112
-           C 164 117 169 120 174 118
-           L 206 106
-           C 211 104 213 99 212 94
-           C 208 76 198 58 184 44
-           C 176 36 162 30 148 26
+           C 79 30 67 36 59 44
+           C 51 56 45 73 42 89
+           C 41 94 43 99 48 101
+           L 67 109
+           C 71 111 75 108 76 104
+           L 72 95
+           L 72 196
+           C 72 203 77 208 84 208
+           L 156 208
+           C 163 208 168 203 168 196
+           L 168 95
+           L 164 104
+           C 165 108 169 111 173 109
+           L 192 101
+           C 197 99 199 94 198 89
+           C 195 73 189 56 181 44
+           C 173 36 161 30 148 26
            C 141 38 99 38 92 26 Z"
         fill="url(#jp-sheen)"
       />
 
       {/* sombras de axilas para dar profundidad */}
-      <path d="M80 100 L76 112 C77 105 78 101 80 97 Z" fill="#000" opacity=".18" />
-      <path d="M160 100 L164 112 C163 105 162 101 160 97 Z" fill="#000" opacity=".18" />
+      <path d="M72 95 L76 104 C74 99 73 98 72 93 Z" fill="#000" opacity=".18" />
+      <path d="M168 95 L164 104 C166 99 167 98 168 93 Z" fill="#000" opacity=".18" />
 
       {/* cuello redondo */}
       <path
@@ -94,16 +96,8 @@ export default function JerseyPreview({ surname, number, kit }) {
       />
 
       {/* puños */}
-      <path
-        d="M34 106 L 66 118 L 63 126 L 31 114 Z"
-        fill={trim}
-        transform="translate(0,-4)"
-      />
-      <path
-        d="M206 106 L 174 118 L 177 126 L 209 114 Z"
-        fill={trim}
-        transform="translate(0,-4)"
-      />
+      <path d="M47 100 L 67 109 L 64 116 L 44 107 Z" fill={trim} />
+      <path d="M193 100 L 173 109 L 176 116 L 196 107 Z" fill={trim} />
 
       {/* apellido */}
       <text
@@ -113,7 +107,9 @@ export default function JerseyPreview({ surname, number, kit }) {
         fontFamily="inherit"
         fontWeight="800"
         fontSize={fontSize}
-        letterSpacing="2"
+        letterSpacing={tracking}
+        textLength={name.length > 11 ? 88 : undefined}
+        lengthAdjust="spacingAndGlyphs"
         fill={text}
       >
         {name}

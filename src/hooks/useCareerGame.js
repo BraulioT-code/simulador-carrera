@@ -3,6 +3,12 @@ import { LEAGUES, EVENTS, PHASES, areRivals } from "../data";
 import { randInt, clamp, pickWeighted } from "../utils/helpers";
 import {
   generateStats,
+  generateNationalStats,
+  addNationalCompetition,
+  resolveTournamentRun,
+  continentalCupType,
+  isContinentalCupYear,
+  regionOf,
   getOffers,
   getDebutOffers,
   generateTrophies,
@@ -11,7 +17,6 @@ import {
   shouldRetire,
   evaluateSeason,
   isWorldCupYear,
-  resolveWorldCup,
   nationalCupName,
   estimateSalary,
 } from "../utils/gameLogic";
@@ -77,6 +82,16 @@ export default function useCareerGame() {
     const copy = [...hist];
     const last = { ...copy[copy.length - 1] };
     last.trophies = [...(last.trophies || []), trophy];
+    copy[copy.length - 1] = last;
+    return copy;
+  };
+
+  /** Suma los partidos de un torneo de selección a la última temporada */
+  const addCompetition = (hist, p, name, pj, stage) => {
+    if (!hist.length) return hist;
+    const copy = [...hist];
+    const last = { ...copy[copy.length - 1] };
+    last.nt = addNationalCompetition(last.nt, p, name, pj, stage);
     copy[copy.length - 1] = last;
     return copy;
   };
@@ -148,6 +163,11 @@ export default function useCareerGame() {
       ...generateAwards(player, stats, season.rating),
     ];
 
+    // Ciclo con la selección: eliminatorias + amistosos (los torneos se suman al resolverse)
+    const region = regionOf(player.nationality);
+    const hasNT = (player.intCaps || 0) > 0;
+    const nt = hasNT ? generateNationalStats(player, region) : null;
+
     const seasonHeadline = generateHeadline({
       player,
       stats,
@@ -171,6 +191,7 @@ export default function useCareerGame() {
         vi: stats.vi,
         rating: season.rating,
         headline: seasonHeadline,
+        nt,
         trophies,
       },
     ];
@@ -188,6 +209,8 @@ export default function useCareerGame() {
       reputation: clamp(player.reputation + randInt(2, 8), 0, 100),
       contractYears: player.contractYears - 1,
       pjPenalty: null,
+      intCaps: (player.intCaps || 0) + (nt?.caps || 0),
+      intGls: (player.intGls || 0) + (nt?.gls || 0),
       earnings: Math.round(((player.earnings || 0) + salary * 2) * 10) / 10,
       salary: estimateSalary({ ...player, overall: newOvr, age: newAge }),
     };
@@ -234,8 +257,10 @@ export default function useCareerGame() {
       celebration: celebrate,
     };
 
+    const cupName = nationalCupName(player.nationality);
+
     // Mundial cada 4 años (18, 22, 26…) si tenés partidos con la selección
-    if (isWorldCupYear(player.age) && (player.intCaps || 0) > 0) {
+    if (isWorldCupYear(player.age) && hasNT) {
       update({
         ...base,
         event: {
@@ -256,23 +281,36 @@ export default function useCareerGame() {
       return;
     }
 
-    const cupName = nationalCupName(player.nationality);
+    // Copa continental en los años intermedios (20, 24, 28…)
+    if (isContinentalCupYear(player.age) && hasNT) {
+      const run = resolveTournamentRun(player, continentalCupType(region));
+      const histWithCup = addCompetition(newHistory, updatedPlayer, cupName, run.matches, run.stage);
 
-    // Penal decisivo por la copa de tu confederación
-    if ((player.intCaps || 0) > 0 && player.age >= 20 && Math.random() < 0.25) {
+      if (run.isFinal) {
+        update({
+          ...base,
+          history: histWithCup,
+          event: {
+            type: "penal",
+            title: "Penal decisivo",
+            desc: `Te toca definir la final de la ${cupName}.`,
+            trophy: { t: "continental", n: cupName },
+            choices: [
+              { label: "Izquierda", eff: "penalty" },
+              { label: "Derecha", eff: "penalty" },
+            ],
+          },
+          phase: PHASES.EVENT,
+        });
+        return;
+      }
+
       update({
         ...base,
-        event: {
-          type: "penal",
-          title: "Penal decisivo",
-          desc: `Te toca definir la final de la ${cupName}.`,
-          trophy: { t: "continental", n: cupName },
-          choices: [
-            { label: "Izquierda", eff: "penalty" },
-            { label: "Derecha", eff: "penalty" },
-          ],
-        },
-        phase: PHASES.EVENT,
+        history: histWithCup,
+        message: `${cupName}: tu selección quedó eliminada en ${run.stage.toLowerCase()}`,
+        offers: getOffers(3, player.team),
+        phase: PHASES.TRANSFER,
       });
       return;
     }
@@ -393,26 +431,18 @@ export default function useCareerGame() {
 
       /* ===== Mundial ===== */
       if (eff === "worldcup") {
-        const caps = (player.intCaps || 0) + randInt(4, 7);
-        const result = resolveWorldCup(player);
-        const p = { ...player, intCaps: caps, reputation: clamp(player.reputation + 6, 0, 100) };
+        const run = resolveTournamentRun(player, "wc");
+        const p = {
+          ...player,
+          intCaps: (player.intCaps || 0) + run.matches,
+          reputation: clamp(player.reputation + 6, 0, 100),
+        };
+        const hist = addCompetition(history, p, "Copa del Mundo", run.matches, run.stage);
 
-        if (result === "champion") {
-          const trophy = { t: "mundial", n: "Copa del Mundo" };
-          update({
-            player: { ...p, reputation: clamp(p.reputation + 15, 0, 100), morale: 100 },
-            history: awardTrophy(history, trophy),
-            celebration: trophy,
-            message: "¡CAMPEONES DEL MUNDO! Tu nombre queda grabado para siempre",
-            offers: getOffers(3, player.team),
-            phase: PHASES.TRANSFER,
-          });
-          return;
-        }
-
-        if (result === "final") {
+        if (run.isFinal) {
           update({
             player: p,
+            history: hist,
             message: "",
             event: {
               type: "penal",
@@ -429,14 +459,10 @@ export default function useCareerGame() {
           return;
         }
 
-        const texts = {
-          semis: "Semifinales: caíste peleando, pero el país te aplaude",
-          quarters: "Cuartos de final: eliminados en un partido durísimo",
-          groups: "Eliminación en fase de grupos: hay que levantarse",
-        };
         update({
           player: p,
-          message: texts[result],
+          history: hist,
+          message: `Mundial: tu selección quedó eliminada en ${run.stage.toLowerCase()} (${run.matches} PJ)`,
           offers: getOffers(3, player.team),
           phase: PHASES.TRANSFER,
         });

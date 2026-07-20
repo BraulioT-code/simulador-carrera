@@ -95,6 +95,24 @@ Aceptar la convocatoria a la selección desbloquea el circuito internacional:
 - **Mundial** cada 4 años de carrera (18, 22, 26, 30, 34, 38). El resultado depende de tu OVR y reputación: campeón directo, final (que se define por penal), semis, cuartos o fase de grupos.
 - **Penal decisivo** (25% por temporada) por la copa de tu confederación — Copa América, Eurocopa, Copa Oro, Copa Asiática o Copa Africana. Si convertís, el trofeo se suma a tu vitrina y a la temporada correspondiente.
 
+### Estadísticas con la selección
+
+Desde que aceptás tu primera convocatoria, cada temporada (bloque de 2 años) genera **estadísticas internacionales** desglosadas por competencia, con la cantidad de partidos ajustada a los formatos reales:
+
+| Competencia | Partidos por selección |
+|-------------|------------------------|
+| Copa del Mundo (48 equipos) | 3 (grupos) a 8 (final), pasando por dieciseisavos, octavos, cuartos y semis |
+| Eurocopa / Copa Africana / Copa Asiática (24 equipos) | 3 a 7 |
+| Copa América / Copa Oro (16 equipos) | 3 a 6 |
+| Eliminatorias CONMEBOL | ~18 por ciclo (8-10 por bloque) |
+| Eliminatorias UEFA | 6-8 por ciclo (3-4 por bloque) |
+| Eliminatorias Concacaf / AFC / CAF | según ronda (3-8 por bloque) |
+| Amistosos | 2-5 por bloque |
+
+Los torneos alternan igual que en la realidad: **Mundial** a los 18, 22, 26, 30, 34 y 38, y la **copa continental** de tu confederación a los 20, 24, 28, 32 y 36. Hasta dónde llega tu selección depende de tu OVR y reputación; si llegás a la final, se define por el penal decisivo.
+
+En la línea de tiempo, las temporadas con selección muestran un chip con tu bandera: al tocarlo se despliega una sub-fila con el desglose (`Copa América 6 · Cuartos`, `Eliminatorias 9`, `Amistosos 3`) y los goles/asistencias internacionales. La barra de estadísticas muestra tres filas: **clubes**, **selección** y **total**, y ese desglose también aparece en la imagen compartible.
+
 ### Puntaje de leyenda
 
 Al retirarte se calcula una nota de 0 a 100 (`src/utils/legend.js`) que pondera trofeos (42 pts máx., con la Copa del Mundo y el Balón de Oro pesando más), OVR pico (24), producción por partido (16), longevidad (10) y partidos internacionales (8). El puntaje da un título: *Leyenda mundial*, *Ídolo global*, *Estrella consagrada*, *Gran profesional*, *Sólido de primera*, *Ídolo de barrio* o *Carrera humilde*. Aparece en pantalla y en la imagen compartible.

@@ -124,9 +124,82 @@ export function nationalCupName(country) {
   return NATIONAL_CUPS[regionOf(country)] || "Copa de Naciones";
 }
 
-/** Años de Mundial: 2 temporadas antes/después, cada 4 años de carrera (18, 22, 26…) */
+/** Años de Mundial: cada 4 años de carrera (18, 22, 26, 30, 34, 38) */
 export function isWorldCupYear(age) {
   return age >= 18 && (age - 18) % 4 === 0;
+}
+
+/** Años de copa continental de selecciones: alternan con el Mundial (20, 24, 28…) */
+export function isContinentalCupYear(age) {
+  return age >= 20 && (age - 20) % 4 === 0;
+}
+
+/**
+ * Partidos de eliminatorias por bloque de 2 años, según confederación.
+ * CONMEBOL: 18 por ciclo (todos contra todos ida y vuelta) → ~9 por bloque.
+ * UEFA: 6-8 por ciclo (grupos de 4 o 5, ida y vuelta) → ~3-4 por bloque.
+ * Concacaf / AFC / CAF: rondas variables.
+ */
+const QUALIFIERS_PER_BLOCK = {
+  sa: [8, 10],
+  eu: [3, 4],
+  na: [3, 6],
+  as: [5, 8],
+  af: [4, 6],
+};
+
+/**
+ * Recorrido en un torneo de selecciones.
+ * type: "wc" (48 equipos: 3 grupos + hasta 5 eliminatorias = 8),
+ *       "cont24" (24 equipos: 3 + octavos… = hasta 7),
+ *       "cont16" (16 equipos: 3 + cuartos… = hasta 6).
+ */
+const RUNS = {
+  wc: [
+    { stage: "Fase de grupos", matches: 3 },
+    { stage: "Dieciseisavos", matches: 4 },
+    { stage: "Octavos", matches: 5 },
+    { stage: "Cuartos", matches: 6 },
+    { stage: "Semifinal", matches: 7 },
+    { stage: "Final", matches: 8 },
+  ],
+  cont24: [
+    { stage: "Fase de grupos", matches: 3 },
+    { stage: "Octavos", matches: 4 },
+    { stage: "Cuartos", matches: 5 },
+    { stage: "Semifinal", matches: 6 },
+    { stage: "Final", matches: 7 },
+  ],
+  cont16: [
+    { stage: "Fase de grupos", matches: 3 },
+    { stage: "Cuartos", matches: 4 },
+    { stage: "Semifinal", matches: 5 },
+    { stage: "Final", matches: 6 },
+  ],
+};
+
+/** Tipo de copa continental según confederación (24 equipos en UEFA/CAF/AFC, 16 en CONMEBOL/Concacaf) */
+export function continentalCupType(region) {
+  return region === "eu" || region === "af" || region === "as" ? "cont24" : "cont16";
+}
+
+/**
+ * Resuelve hasta dónde llega tu selección.
+ * Devuelve { stage, matches, isFinal, champion } — el título se define aparte
+ * (por penal) cuando se llega a la final.
+ */
+export function resolveTournamentRun(player, type = "wc") {
+  const table = RUNS[type];
+  const strength = clamp(
+    (player.overall - 62) / 34 + (player.reputation || 0) / 300,
+    0.05,
+    0.95
+  );
+  // Cuanto mejor el jugador, más probable avanzar de ronda
+  let idx = 0;
+  while (idx < table.length - 1 && Math.random() < 0.32 + strength * 0.42) idx++;
+  const entry = table[idx];
+  return { ...entry, isFinal: idx === table.length - 1 };
 }
 
 /**
@@ -198,17 +271,59 @@ export function generateAwards(player, stats, rating) {
 }
 
 /**
- * Resuelve el Mundial: devuelve el resultado de la campaña de tu selección.
- * `bonus` mejora las chances (por ejemplo tras convertir el penal decisivo).
+ * Estadísticas con la selección en el bloque de 2 años.
+ * Se compone de eliminatorias (según confederación) + amistosos.
+ * Los partidos de torneo se suman aparte al resolverse (ver addNationalCompetition).
  */
-export function resolveWorldCup(player, bonus = 0) {
-  const strength = clamp((player.overall - 60) / 40 + (player.reputation || 0) / 250 + bonus, 0, 1);
-  const r = Math.random();
-  if (r < 0.06 + strength * 0.22) return "champion";
-  if (r < 0.18 + strength * 0.35) return "final";
-  if (r < 0.42 + strength * 0.4) return "semis";
-  if (r < 0.75) return "quarters";
-  return "groups";
+export function generateNationalStats(player, region) {
+  const [qmin, qmax] = QUALIFIERS_PER_BLOCK[region] || [3, 5];
+  // Titularidad en la selección según nivel: los mejores juegan casi todo
+  const share = clamp((player.overall - 58) / 30, 0.35, 1);
+
+  const comps = [
+    { n: "Eliminatorias", pj: Math.max(1, Math.round(randInt(qmin, qmax) * share)) },
+    { n: "Amistosos", pj: Math.max(1, Math.round(randInt(2, 5) * share)) },
+  ];
+
+  return withNationalTotals({ comps, gls: 0, ast: 0, gc: 0, vi: 0 }, player);
+}
+
+/** Recalcula totales y producción a partir de los partidos por competencia */
+function withNationalTotals(nt, player) {
+  const caps = nt.comps.reduce((s, c) => s + c.pj, 0);
+  const factor = clamp(player.overall / 80, 0.5, 1.25);
+
+  if (player.position === "GK") {
+    return {
+      ...nt,
+      caps,
+      gls: 0,
+      ast: 0,
+      gc: Math.max(0, randInt(Math.floor(caps * 0.4), Math.floor(caps * 1.2))),
+      vi: randInt(0, Math.round(caps * 0.4 * factor)),
+    };
+  }
+
+  const isAttacker = ["ST", "LW", "RW", "CAM"].includes(player.position);
+  const isMid = ["CM", "CDM", "LM", "RM"].includes(player.position);
+  const glsRate = isAttacker ? 0.4 : isMid ? 0.15 : 0.05;
+  const astRate = isAttacker || isMid ? 0.28 : 0.08;
+
+  return {
+    ...nt,
+    caps,
+    gls: randInt(0, Math.max(1, Math.round(caps * glsRate * factor))),
+    ast: randInt(0, Math.max(1, Math.round(caps * astRate * factor))),
+    gc: 0,
+    vi: 0,
+  };
+}
+
+/** Suma un torneo (Mundial / copa continental) a las estadísticas de selección */
+export function addNationalCompetition(nt, player, name, pj, stage) {
+  const base = nt || { comps: [] };
+  const comps = [{ n: name, pj, stage }, ...base.comps.filter((c) => c.n !== name)];
+  return withNationalTotals({ ...base, comps }, player);
 }
 
 /** Salario anual estimado (millones €) según OVR, edad y prestigio de liga */

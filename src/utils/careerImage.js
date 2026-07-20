@@ -254,7 +254,9 @@ export async function generateCareerImage({
   const trophyLines = grouped.length ? Math.ceil(grouped.length / 3) : 0;
   const trophiesH = trophyLines ? trophyLines * 44 + 10 : 0;
   const legendH = legend ? 58 : 0;
-  const H = PAD + 100 + 60 + trophiesH + 30 + rows.length * ROW_H + legendH + PAD;
+  const hasNT = rows.some((r) => r.nt?.caps);
+  const statsH = hasNT ? 74 : 60;
+  const H = PAD + 100 + statsH + trophiesH + 30 + rows.length * ROW_H + legendH + PAD;
 
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE;
@@ -378,30 +380,42 @@ export async function generateCareerImage({
   ctx.strokeStyle = "rgba(63,63,70,.5)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(PAD, y + 4);
-  ctx.lineTo(W - PAD, y + 4);
-  ctx.moveTo(PAD, y + 52);
-  ctx.lineTo(W - PAD, y + 52);
+  ctx.moveTo(PAD, y + 2);
+  ctx.lineTo(W - PAD, y + 2);
+  ctx.moveTo(PAD, y + statsH - 8);
+  ctx.lineTo(W - PAD, y + statsH - 8);
   ctx.stroke();
 
+  const ntCaps = rows.reduce((s, h) => s + (h.nt?.caps || 0), 0);
+  const ntA = rows.reduce((s, h) => s + (isGK ? h.nt?.gc || 0 : h.nt?.gls || 0), 0);
+  const ntB = rows.reduce((s, h) => s + (isGK ? h.nt?.vi || 0 : h.nt?.ast || 0), 0);
+
   const cols = [
-    ["PJ", tPJMax ? `${tPJ}/${tPJMax}` : String(tPJ)],
-    [isGK ? "GC" : "GLS", String(tA)],
-    [isGK ? "VI" : "AST", String(tB)],
+    ["PJ", tPJMax ? `${tPJ + ntCaps}/${tPJMax + ntCaps}` : String(tPJ + ntCaps), tPJ, ntCaps],
+    [isGK ? "GC" : "GLS", String(tA + ntA), tA, ntA],
+    [isGK ? "VI" : "AST", String(tB + ntB), tB, ntB],
   ];
-  cols.forEach(([label, val], i) => {
+  cols.forEach(([label, val, clubVal, natVal], i) => {
     const cx = W / 6 + (i * W) / 3;
     ctx.textAlign = "center";
     ctx.fillStyle = "#71717a";
     ctx.font = "700 10px 'Segoe UI', sans-serif";
-    ctx.fillText(label, cx, y + 16);
+    ctx.fillText(label, cx, y + 14);
     ctx.fillStyle = "#ffffff";
     ctx.font = "800 20px 'Segoe UI', sans-serif";
-    ctx.fillText(val, cx, y + 37);
+    ctx.fillText(val, cx, y + 33);
+    // Desglose club / selección
+    if (ntCaps > 0) {
+      ctx.font = "700 9px 'Segoe UI', sans-serif";
+      ctx.fillStyle = "#71717a";
+      ctx.fillText(`clubes ${clubVal}`, cx - 26, y + 47);
+      ctx.fillStyle = "#7dd3fc";
+      ctx.fillText(`sel. ${natVal}`, cx + 26, y + 47);
+    }
   });
 
   /* ===== Vitrina ===== */
-  y += 60;
+  y += statsH;
   if (grouped.length) {
     let tx = PAD;
     let ty = y;

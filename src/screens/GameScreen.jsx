@@ -169,6 +169,11 @@ export default function GameScreen({
   const tAST = history.reduce((s, h) => s + h.ast, 0);
   const tGC = history.reduce((s, h) => s + (h.gc || 0), 0);
   const tVI = history.reduce((s, h) => s + (h.vi || 0), 0);
+  const tNTCaps = history.reduce((s, h) => s + (h.nt?.caps || 0), 0);
+  const tNTGls = history.reduce((s, h) => s + (h.nt?.gls || 0), 0);
+  const tNTAst = history.reduce((s, h) => s + (h.nt?.ast || 0), 0);
+  const tNTGc = history.reduce((s, h) => s + (h.nt?.gc || 0), 0);
+  const tNTVi = history.reduce((s, h) => s + (h.nt?.vi || 0), 0);
   const allTrophies = history.flatMap((h) => h.trophies || []);
 
   const [shareMsg, setShareMsg] = useState("");
@@ -271,6 +276,12 @@ export default function GameScreen({
               gc={tGC}
               vi={tVI}
               isGK={isGK}
+              ntCaps={tNTCaps}
+              ntGls={tNTGls}
+              ntAst={tNTAst}
+              ntGc={tNTGc}
+              ntVi={tNTVi}
+              natCode={natData?.c}
             />
           )}
           {(allTrophies.length > 0 || history.length > 0) && (
@@ -287,6 +298,8 @@ export default function GameScreen({
             currentAge={player.age}
             showCurrent={phase !== PHASES.OVER}
             isGK={isGK}
+            natCode={natData?.c}
+            nationality={player.nationality}
           />
         </div>
 

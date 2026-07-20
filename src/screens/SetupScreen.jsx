@@ -3,6 +3,7 @@ import { CountryPicker, PitchSelector, JerseyPreview } from "../components";
 import { getKit } from "../data";
 
 const STEPS = ["Nacionalidad", "Identidad", "Posición"];
+const MAX_SURNAME = 14;
 
 export default function SetupScreen({ onConfirm, onOpenHallOfFame }) {
   const [step, setStep] = useState(0);
@@ -48,10 +49,14 @@ export default function SetupScreen({ onConfirm, onOpenHallOfFame }) {
           </div>
           <input
             value={surname}
-            onChange={(e) => setSurname(e.target.value.toUpperCase())}
+            onChange={(e) => setSurname(e.target.value.toUpperCase().slice(0, MAX_SURNAME))}
+            maxLength={MAX_SURNAME}
             placeholder="APELLIDO"
             className="w-full rounded-lg bg-zinc-800/70 px-3 py-2.5 text-[13px] font-bold text-white outline-none ring-1 ring-transparent placeholder:text-zinc-600 focus:ring-zinc-500"
           />
+          <div className="mt-1 text-right text-[9px] font-semibold text-zinc-600">
+            {surname.length}/{MAX_SURNAME}
+          </div>
         </div>
         <div className="w-20">
           <div className="mb-1.5 text-[9px] font-bold tracking-[0.14em] text-zinc-500">
