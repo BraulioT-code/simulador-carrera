@@ -13,7 +13,7 @@ const LEAGUES = {
   "Brasileirão": { c: "Brasil", code: "br", p: 78, r: "sa", teams: ["Ath. Paranaense", "Atlético Mineiro", "Botafogo", "Corinthians", "Cruzeiro", "Flamengo", "Fluminense", "Fortaleza", "Grêmio", "Internacional", "Palmeiras", "RB Bragantino", "São Paulo", "Vasco"] },
   "Primeira Div.": { c: "Uruguay", code: "uy", p: 62, r: "sa", teams: ["Danubio", "Defensor", "Liverpool M.", "Nacional", "Peñarol", "Racing M.", "Wanderers"] },
   "Primera (Chile)": { c: "Chile", code: "cl", p: 60, r: "sa", teams: ["Cobreloa", "Colo-Colo", "Everton Viña", "Huachipato", "O'Higgins", "U. Católica", "U. de Chile", "Unión Española"] },
-  "Primera (Paraguay)": { c: "Paraguay", code: "py", p: 55, r: "sa", teams: ["Cerro Porteño", "Guaraní", "Libertad", "Nacional", "Olimpia", "Sol de América"] },
+  "Primera (Paraguay)": { c: "Paraguay", code: "py", p: 55, r: "sa", teams: ["Cerro Porteño", "Guaraní", "Libertad", "Nacional (PAR)", "Olimpia", "Sol de América"] },
   "Liga Pro": { c: "Ecuador", code: "ec", p: 55, r: "sa", teams: ["Barcelona SC", "Delfín", "Emelec", "IDV", "LDU Quito"] },
   "Liga 1": { c: "Perú", code: "pe", p: 52, r: "sa", teams: ["Alianza Lima", "Cienciano", "Melgar", "Sporting Cristal", "Universitario"] },
   "Eredivisie": { c: "Países Bajos", code: "nl", p: 70, r: "eu", teams: ["Ajax", "AZ", "Feyenoord", "Twente", "Utrecht", "PSV", "Sparta R.", "Willem II"] },

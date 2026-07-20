@@ -5,6 +5,7 @@ export { default as EVENTS } from "./events";
 export { getTeamColor, teamTint } from "./teamColors";
 export { getKit } from "./kits";
 export { areRivals } from "./rivals";
+export { getClubRating, clubTier } from "./clubRatings";
 export { getLogoUrl, LOGO_SEARCH_NAMES } from "./teamLogos";
 
 export const AGES = Array.from({ length: 12 }, (_, i) => 16 + i * 2);

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { LEAGUES, EVENTS, PHASES, areRivals } from "../data";
+import { LEAGUES, EVENTS, PHASES, areRivals, getClubRating } from "../data";
 import { randInt, clamp, pickWeighted } from "../utils/helpers";
 import {
   generateStats,
@@ -10,6 +10,7 @@ import {
   isContinentalCupYear,
   regionOf,
   getOffers,
+  offerWindow,
   getDebutOffers,
   generateTrophies,
   generateAwards,
@@ -33,6 +34,7 @@ const initialState = {
   headline: "",
   firstClub: "",
   canStay: true,
+  offerWin: null,
   celebration: null,
   phase: PHASES.SETUP,
 };
@@ -60,6 +62,7 @@ export default function useCareerGame() {
     headline,
     firstClub,
     canStay,
+    offerWin,
     celebration,
     phase,
   } = state;
@@ -84,6 +87,53 @@ export default function useCareerGame() {
     last.trophies = [...(last.trophies || []), trophy];
     copy[copy.length - 1] = last;
     return copy;
+  };
+
+  /**
+   * Resuelve una final de selección.
+   * La mitad de las finales se definen desde el punto del penal (evento jugable);
+   * la otra mitad se simula directamente, con un 50/50 de ganar el título.
+   */
+  const resolveFinal = (hist, p, trophy, base = {}) => {
+    if (Math.random() < 0.5) {
+      update({
+        ...base,
+        player: p,
+        history: hist,
+        message: "",
+        event: {
+          type: "penal",
+          title: "Penal decisivo",
+          desc: `Te toca definir la final de la ${trophy.n}.`,
+          trophy,
+          choices: [
+            { label: "Izquierda", eff: "penalty" },
+            { label: "Derecha", eff: "penalty" },
+          ],
+        },
+        phase: PHASES.EVENT,
+      });
+      return;
+    }
+
+    const won = Math.random() < 0.5;
+    update({
+      ...base,
+      player: won
+        ? {
+            ...p,
+            reputation: clamp(p.reputation + 12, 0, 100),
+            morale: clamp(p.morale + 10, 0, 100),
+          }
+        : { ...p, morale: clamp(p.morale - 6, 0, 100) },
+      history: won ? awardTrophy(hist, trophy) : hist,
+      celebration: won ? trophy : null,
+      message: won
+        ? `¡Campeones de la ${trophy.n}!`
+        : `Subcampeones: se escapó la final de la ${trophy.n}`,
+      offers: getOffers(3, p.team, base.offerWin ?? offerWin),
+      phase: PHASES.TRANSFER,
+    });
   };
 
   /** Suma los partidos de un torneo de selección a la última temporada */
@@ -165,6 +215,10 @@ export default function useCareerGame() {
 
     // Ciclo con la selección: eliminatorias + amistosos (los torneos se suman al resolverse)
     const region = regionOf(player.nationality);
+    // Nivel de los clubes que se van a interesar, según cómo te fue
+    const clubRating = getClubRating(player.team, player.league);
+    // Tiene en cuenta OVR, minutos, goles y asistencias de la temporada
+    const window = offerWindow(clubRating, season, player, stats);
     const hasNT = (player.intCaps || 0) > 0;
     const nt = hasNT ? generateNationalStats(player, region) : null;
 
@@ -255,6 +309,7 @@ export default function useCareerGame() {
       message: "",
       headline: seasonHeadline,
       celebration: celebrate,
+      offerWin: window,
     };
 
     const cupName = nationalCupName(player.nationality);
@@ -287,21 +342,7 @@ export default function useCareerGame() {
       const histWithCup = addCompetition(newHistory, updatedPlayer, cupName, run.matches, run.stage);
 
       if (run.isFinal) {
-        update({
-          ...base,
-          history: histWithCup,
-          event: {
-            type: "penal",
-            title: "Penal decisivo",
-            desc: `Te toca definir la final de la ${cupName}.`,
-            trophy: { t: "continental", n: cupName },
-            choices: [
-              { label: "Izquierda", eff: "penalty" },
-              { label: "Derecha", eff: "penalty" },
-            ],
-          },
-          phase: PHASES.EVENT,
-        });
+        resolveFinal(histWithCup, updatedPlayer, { t: "continental", n: cupName }, base);
         return;
       }
 
@@ -309,7 +350,7 @@ export default function useCareerGame() {
         ...base,
         history: histWithCup,
         message: `${cupName}: tu selección quedó eliminada en ${run.stage.toLowerCase()}`,
-        offers: getOffers(3, player.team),
+        offers: getOffers(3, player.team, window),
         phase: PHASES.TRANSFER,
       });
       return;
@@ -346,7 +387,7 @@ export default function useCareerGame() {
       const r2 = Math.random();
 
       if (r2 < 0.15) {
-        const offer = getOffers(1, player.team)[0];
+        const offer = getOffers(1, player.team, window)[0];
         ev = {
           title: "Declaración polémica",
           desc: "Criticás públicamente al entrenador tras una derrota dura y el vestuario se puso tenso.",
@@ -390,7 +431,7 @@ export default function useCareerGame() {
 
       update({ ...base, event: ev, phase: PHASES.EVENT });
     } else {
-      update({ ...base, offers: getOffers(3, player.team), phase: PHASES.TRANSFER });
+      update({ ...base, offers: getOffers(3, player.team, window), phase: PHASES.TRANSFER });
     }
   }, [player, history, firstClub]);
 
@@ -425,7 +466,7 @@ export default function useCareerGame() {
       const eff = choice.eff;
 
       if (!eff || Object.keys(eff).length === 0) {
-        update({ offers: getOffers(3, player.team), phase: PHASES.TRANSFER });
+        update({ offers: getOffers(3, player.team, offerWin), phase: PHASES.TRANSFER });
         return;
       }
 
@@ -440,22 +481,7 @@ export default function useCareerGame() {
         const hist = addCompetition(history, p, "Copa del Mundo", run.matches, run.stage);
 
         if (run.isFinal) {
-          update({
-            player: p,
-            history: hist,
-            message: "",
-            event: {
-              type: "penal",
-              title: "Penal decisivo",
-              desc: "Te toca definir la final de la Copa del Mundo.",
-              trophy: { t: "mundial", n: "Copa del Mundo" },
-              choices: [
-                { label: "Izquierda", eff: "penalty" },
-                { label: "Derecha", eff: "penalty" },
-              ],
-            },
-            phase: PHASES.EVENT,
-          });
+          resolveFinal(hist, p, { t: "mundial", n: "Copa del Mundo" });
           return;
         }
 
@@ -463,7 +489,7 @@ export default function useCareerGame() {
           player: p,
           history: hist,
           message: `Mundial: tu selección quedó eliminada en ${run.stage.toLowerCase()} (${run.matches} PJ)`,
-          offers: getOffers(3, player.team),
+          offers: getOffers(3, player.team, offerWin),
           phase: PHASES.TRANSFER,
         });
         return;
@@ -488,7 +514,7 @@ export default function useCareerGame() {
             message: trophy
               ? `¡GOL! Campeones de la ${trophy.n}`
               : "¡GOL! Definiste la final y sos leyenda nacional",
-            offers: getOffers(3, player.team),
+            offers: getOffers(3, player.team, offerWin),
             phase: PHASES.TRANSFER,
           });
         } else {
@@ -499,7 +525,7 @@ export default function useCareerGame() {
               morale: clamp(player.morale - 10, 0, 100),
             },
             message: "El arquero adivinó… fallaste el penal decisivo",
-            offers: getOffers(3, player.team),
+            offers: getOffers(3, player.team, offerWin),
             phase: PHASES.TRANSFER,
           });
         }
@@ -539,7 +565,7 @@ export default function useCareerGame() {
         update({
           player: updatedPlayer,
           message: msg,
-          offers: getOffers(3, player.team),
+          offers: getOffers(3, player.team, offerWin),
           phase: PHASES.TRANSFER,
         });
       }

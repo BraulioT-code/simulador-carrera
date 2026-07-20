@@ -2,8 +2,23 @@ import { ovrColor, ovrTextColor } from "../utils/helpers";
 import { getTeamColor, teamTint } from "../data";
 import Flag from "./Flag";
 import ClubLogo from "./ClubLogo";
+import { useEffect, useRef, useState } from "react";
+import CountUp, { DeltaBadge, SEQ } from "./CountUp";
 
 export default function PlayerHeader({ player, natData, posData, marketVal }) {
+  // Diferencia de OVR respecto a la temporada anterior (se muestra unos segundos)
+  const prevOvr = useRef(player.overall);
+  const [delta, setDelta] = useState(0);
+
+  useEffect(() => {
+    const d = player.overall - prevOvr.current;
+    prevOvr.current = player.overall;
+    if (!d) return undefined;
+    setDelta(d);
+    const t = setTimeout(() => setDelta(0), 3200);
+    return () => clearTimeout(t);
+  }, [player.overall]);
+
   const isFree = player.team === "Libre";
   const teamColor = isFree ? "#7c3aed" : getTeamColor(player.team, player.league);
   const tint = isFree ? "rgba(124,58,237,.14)" : teamTint(player.team, player.league, 0.22);
@@ -24,8 +39,14 @@ export default function PlayerHeader({ player, natData, posData, marketVal }) {
           className="text-2xl font-black leading-none text-white lg:text-4xl"
           style={{ textShadow: "0 2px 4px rgba(0,0,0,.55)" }}
         >
-          {player.overall}
+          <CountUp
+            value={player.overall}
+            fromPrevious
+            duration={900}
+            delay={SEQ.ovrMain}
+          />
         </div>
+        <DeltaBadge delta={delta} className="mt-1" />
       </div>
 
       {/* Tarjeta de identidad, sombreada con el color del club */}
@@ -68,7 +89,30 @@ export default function PlayerHeader({ player, natData, posData, marketVal }) {
           <div className="text-[8px] font-semibold text-zinc-400 lg:text-[9px]">
             VALOR{" "}
             <span className="ml-1 text-[13px] font-extrabold text-amber-400 lg:text-sm">
-              {marketVal >= 1 ? `€${marketVal}M` : `€${Math.round(marketVal * 1000)}K`}
+              {marketVal >= 1 ? (
+                <>
+                  €
+                  <CountUp
+                    value={marketVal}
+                    fromPrevious
+                    decimals={1}
+                    duration={800}
+                    delay={SEQ.value}
+                  />
+                  M
+                </>
+              ) : (
+                <>
+                  €
+                  <CountUp
+                    value={Math.round(marketVal * 1000)}
+                    fromPrevious
+                    duration={800}
+                    delay={SEQ.value}
+                  />
+                  K
+                </>
+              )}
             </span>
           </div>
         </div>

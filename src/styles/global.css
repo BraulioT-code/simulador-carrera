@@ -19,6 +19,42 @@ input[inputmode="numeric"] {
   appearance: textfield;
 }
 
+/* Aparición escalonada de las estadísticas de la temporada nueva */
+@keyframes statReveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.stat-reveal {
+  animation: statReveal 0.42s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+/* Pulso del indicador +/- de OVR */
+@keyframes deltaPop {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.delta-pop {
+  animation: deltaPop 0.5s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
 /* Celebración de trofeo */
 @keyframes celebratePop {
   0% {

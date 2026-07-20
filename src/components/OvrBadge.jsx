@@ -1,6 +1,7 @@
 import { ovrColor, ovrTextColor } from "../utils/helpers";
+import CountUp from "./CountUp";
 
-export default function OvrBadge({ ovr, size = 32 }) {
+export default function OvrBadge({ ovr, size = 32, animate = true, delay = 0 }) {
   return (
     <span
       className="inline-flex items-center justify-center rounded-md font-black"
@@ -13,7 +14,7 @@ export default function OvrBadge({ ovr, size = 32 }) {
         padding: "0 3px",
       }}
     >
-      {ovr}
+      {animate ? <CountUp value={ovr} duration={700} delay={delay} /> : ovr}
     </span>
   );
 }

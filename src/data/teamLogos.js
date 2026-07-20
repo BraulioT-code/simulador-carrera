@@ -64,7 +64,7 @@ export const LOGO_SEARCH_NAMES = {
   "Atlético Mineiro": "Atletico Mineiro",
   "América": "Club America", "UNAM Pumas": "Pumas UNAM", "León": "Club Leon",
   "Ath. Paranaense": "Athletico Paranaense", "RB Bragantino": "Bragantino",
-  Nacional: "Nacional Montevideo", "Peñarol": "Penarol", Defensor: "Defensor Sporting",
+  Nacional: "Nacional Montevideo", "Nacional (PAR)": "Club Nacional Asuncion", "Peñarol": "Penarol", Defensor: "Defensor Sporting",
   "U. Católica": "Universidad Catolica", "U. de Chile": "Universidad de Chile",
   IDV: "Independiente del Valle", "LDU Quito": "LDU de Quito",
   "Sparta R.": "Sparta Rotterdam", "Vitória SC": "Vitoria Guimaraes",

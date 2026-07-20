@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PlayerHeader,
   StatsBar,
@@ -9,7 +9,8 @@ import {
   TrophyCelebration,
   HallOfFame,
 } from "../components";
-import { ALL_COUNTRIES, POS_MAP, PHASES, teamTint } from "../data";
+import { SEQ } from "../components/CountUp";
+import { ALL_COUNTRIES, POS_MAP, PHASES, teamTint, getClubRating } from "../data";
 import { marketValue } from "../utils/helpers";
 import { generateCareerImage } from "../utils/careerImage";
 import { legendScore, legendTitle, legendColor } from "../utils/legend";
@@ -46,6 +47,27 @@ function FxChip({ t, g, active = false, dim = false, landed = false }) {
       </svg>
       {t}
     </span>
+  );
+}
+
+/** Chip con el ranking del club y si es un paso adelante o atrás */
+function RankChip({ rating, current }) {
+  const diff = rating - current;
+  const better = diff >= 3;
+  const worse = diff <= -3;
+  return (
+    <div
+      className={`mt-1.5 flex w-full items-center justify-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+        better
+          ? "bg-emerald-950/70 text-emerald-400"
+          : worse
+            ? "bg-red-950/60 text-red-400"
+            : "bg-zinc-800/80 text-zinc-400"
+      }`}
+      title={`Ranking del club: ${rating}`}
+    >
+      {better ? "▲" : worse ? "▼" : "="} RANK {rating}
+    </div>
   );
 }
 
@@ -169,6 +191,7 @@ export default function GameScreen({
   const tAST = history.reduce((s, h) => s + h.ast, 0);
   const tGC = history.reduce((s, h) => s + (h.gc || 0), 0);
   const tVI = history.reduce((s, h) => s + (h.vi || 0), 0);
+  const currentRating = getClubRating(player.team, player.league);
   const tNTCaps = history.reduce((s, h) => s + (h.nt?.caps || 0), 0);
   const tNTGls = history.reduce((s, h) => s + (h.nt?.gls || 0), 0);
   const tNTAst = history.reduce((s, h) => s + (h.nt?.ast || 0), 0);
@@ -179,6 +202,30 @@ export default function GameScreen({
   const [shareMsg, setShareMsg] = useState("");
   const [sharing, setSharing] = useState(false);
   const [showHof, setShowHof] = useState(false);
+
+  // La celebración espera a que termine la secuencia de números de la temporada
+  // (OVR → Valor → OVR de la fila → PJ → GLS → AST) y entra 1s después.
+  const [showCelebration, setShowCelebration] = useState(false);
+  const prevSeasons = useRef(history.length);
+
+  useEffect(() => {
+    const isNewSeason = history.length > prevSeasons.current;
+    prevSeasons.current = history.length;
+
+    if (!celebration) {
+      setShowCelebration(false);
+      return undefined;
+    }
+    // Tras un evento (penal, Mundial) no hay secuencia de números: entra enseguida
+    const wait = isNewSeason ? SEQ.celebration : 350;
+    const t = setTimeout(() => setShowCelebration(true), wait);
+    return () => clearTimeout(t);
+  }, [celebration, history.length]);
+
+  const dismissCelebration = useCallback(() => {
+    setShowCelebration(false);
+    onDismissCelebration();
+  }, [onDismissCelebration]);
 
   const score = useMemo(
     () => (phase === PHASES.OVER ? legendScore({ player, history }) : 0),
@@ -260,7 +307,7 @@ export default function GameScreen({
 
   return (
     <div className="flex min-h-[100dvh] flex-col">
-      <TrophyCelebration trophy={celebration} onDone={onDismissCelebration} />
+      <TrophyCelebration trophy={showCelebration ? celebration : null} onDone={dismissCelebration} />
       {showHof && <HallOfFame onClose={() => setShowHof(false)} />}
 
       <div className="mx-auto flex w-full max-w-[1080px] flex-1 flex-col p-3 lg:grid lg:grid-cols-[46%_1fr] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-4 lg:p-4">
@@ -360,6 +407,11 @@ export default function GameScreen({
                       <Flag code={o.code} className="w-3.5 h-[10px]" />
                       <span className="truncate">{o.league}</span>
                     </div>
+                    {/* Ranking del club respecto al actual */}
+                    <RankChip
+                      rating={o.rating ?? getClubRating(o.team, o.league)}
+                      current={currentRating}
+                    />
                   </button>
                 ))}
               </div>

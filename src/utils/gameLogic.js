@@ -1,4 +1,5 @@
 import { LEAGUES } from "../data";
+import { getClubRating } from "../data/clubRatings";
 import { randInt, clamp } from "./helpers";
 
 /**
@@ -35,19 +36,104 @@ export function generateStats(position, ovr, age) {
   };
 }
 
-/**
- * Genera ofertas aleatorias de clubes.
- */
-export function getOffers(count = 3, excludeTeam = "") {
+/** Todos los clubes del juego con su liga y ranking */
+function allClubs(excludeTeam = "") {
   const all = [];
   Object.entries(LEAGUES).forEach(([leagueName, leagueData]) => {
     leagueData.teams.forEach((team) => {
       if (team !== excludeTeam) {
-        all.push({ team, league: leagueName, code: leagueData.code });
+        all.push({
+          team,
+          league: leagueName,
+          code: leagueData.code,
+          rating: getClubRating(team, leagueName),
+        });
       }
     });
   });
-  return all.sort(() => Math.random() - 0.5).slice(0, count);
+  return all;
+}
+
+/**
+ * Ofertas de clubes filtradas por ranking.
+ * `window` = { min, max } acota el nivel de los clubes interesados.
+ */
+export function getOffers(count = 3, excludeTeam = "", window = null) {
+  const all = allClubs(excludeTeam);
+  let pool = all;
+
+  if (window) {
+    pool = all.filter((c) => c.rating >= window.min && c.rating <= window.max);
+    // Si la ventana es muy estrecha, se amplía progresivamente
+    let widen = 0;
+    while (pool.length < count && widen < 40) {
+      widen += 5;
+      pool = all.filter(
+        (c) => c.rating >= window.min - widen && c.rating <= window.max + widen / 2
+      );
+    }
+  }
+
+  return pool.sort(() => Math.random() - 0.5).slice(0, count);
+}
+
+/**
+ * Ventana de clubes interesados según el rendimiento de la temporada.
+ * - Temporadón: te buscan clubes mejores que el actual.
+ * - Buena: clubes de nivel similar o algo mejor.
+ * - Floja / sin renovación: solo clubes por debajo de tu club actual.
+ */
+export function offerWindow(currentRating, season, player = null, stats = null) {
+  const r = season?.rating ?? 5;
+  const ovr = player?.overall ?? currentRating;
+
+  // Punto de partida: tu club actual, pero si tu OVR le queda grande,
+  // los clubes de tu nivel real también se fijan en vos.
+  let center = Math.max(currentRating, ovr - 3);
+
+  // Rendimiento global de la temporada (-9 a +9)
+  center += (r - 5) * 1.8;
+
+  if (stats) {
+    const isGK = player?.position === "GK";
+    const share = stats.pj / Math.max(1, stats.pjMax || 85);
+
+    if (isGK) {
+      const clean = stats.vi / Math.max(1, stats.pj);
+      if (clean >= 0.4) center += 5;
+      else if (clean >= 0.28) center += 2;
+      else if (clean <= 0.12) center -= 4;
+    } else {
+      const per = (stats.gls + 0.6 * stats.ast) / Math.max(1, stats.pj);
+      // Números de crack
+      if (stats.gls >= 30 || stats.ast >= 25 || per >= 0.85) center += 6;
+      else if (stats.gls >= 20 || stats.ast >= 16 || per >= 0.6) center += 3.5;
+      else if (stats.gls >= 12 || stats.ast >= 10) center += 1.5;
+      // Aporte casi nulo jugando seguido
+      else if (stats.gls + stats.ast <= 4 && stats.pj > 35) center -= 4;
+    }
+
+    // Minutos jugados
+    if (share >= 0.9) center += 2;
+    else if (share < 0.45) center -= 6;
+    else if (share < 0.65) center -= 2;
+  }
+
+  // Las carreras se construyen por escalones: nadie salta de la nada a la élite
+  center = Math.min(center, currentRating + 20);
+
+  let win;
+  if (!season?.good) {
+    // Sin renovación: siempre un escalón por debajo de tu club actual
+    const top = Math.min(center, currentRating - 3);
+    win = { min: top - 16, max: top };
+  } else {
+    win = { min: center - 6, max: center + 8 };
+  }
+
+  // Si ya estás en la cima, los grandes siguen interesados (no hay nada mejor)
+  if (win.min > 90) win.min = 88;
+  return { min: Math.max(32, Math.round(win.min)), max: Math.min(99, Math.round(win.max)) };
 }
 
 /**
@@ -55,22 +141,22 @@ export function getOffers(count = 3, excludeTeam = "") {
  * Si el país no tiene liga en el juego, se ofrecen ligas modestas (p <= 62).
  */
 export function getDebutOffers(country, count = 3) {
+  const add = (leagueName, leagueData) =>
+    leagueData.teams.map((team) => ({
+      team,
+      league: leagueName,
+      code: leagueData.code,
+      rating: getClubRating(team, leagueName),
+    }));
+
   let pool = [];
   Object.entries(LEAGUES).forEach(([leagueName, leagueData]) => {
-    if (leagueData.c === country) {
-      leagueData.teams.forEach((team) =>
-        pool.push({ team, league: leagueName, code: leagueData.code })
-      );
-    }
+    if (leagueData.c === country) pool.push(...add(leagueName, leagueData));
   });
 
   if (pool.length === 0) {
     Object.entries(LEAGUES).forEach(([leagueName, leagueData]) => {
-      if (leagueData.p <= 62) {
-        leagueData.teams.forEach((team) =>
-          pool.push({ team, league: leagueName, code: leagueData.code })
-        );
-      }
+      if (leagueData.p <= 62) pool.push(...add(leagueName, leagueData));
     });
   }
 

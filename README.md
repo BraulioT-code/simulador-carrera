@@ -70,6 +70,23 @@ Al final de cada temporada, `evaluateSeason()` (en `src/utils/gameLogic.js`) dec
 
 Calibración simulada (3000 temporadas por caso): entre 60% y 77% de las temporadas terminan en renovación, tanto a los 24 como a los 36 años — solo las temporadas flojas de verdad (poca producción o suplencia) terminan sin oferta del club. Un delantero de OVR 63 con 22 goles en una liga modesta renueva siempre, sin importar la edad.
 
+### Ranking de clubes y mercado
+
+**Los 372 clubes** tienen un ranking propio de 0 a 100 (`src/data/clubRatings.js`), agrupado por liga y ordenado de mayor a menor, inspirado en los rankings mundiales de clubes (coeficientes UEFA/Opta en Europa, ranking CONMEBOL en Sudamérica): Real Madrid 96, Barcelona 95, Man. City 94, Bayern 93, Palmeiras 85, Flamengo 84, River 82, Boca 81, Millonarios 72, Leeds 74, Cortuluá 37… Así cualquier oferta tiene un nivel definido y comparable entre torneos.
+
+La ventana de clubes interesados (`offerWindow`) tiene en cuenta **todo el desempeño**, no solo la nota:
+
+- **Tu club actual** como punto de partida, y **tu OVR**: si el nivel del club te queda chico, clubes de tu categoría real se fijan en vos.
+- **La nota de la temporada** (±9 puntos de ranking).
+- **Producción**: 30+ goles, 25+ asistencias o un promedio de 0.85 aportes por partido suman 6 puntos; 20+ goles suman 3.5; casi no aportar jugando seguido resta 4. Para arqueros cuenta el porcentaje de vallas invictas.
+- **Minutos**: jugar el 90% suma 2; menos del 45% resta 6.
+- **Escalones**: el salto máximo es de +20 de ranking por temporada — las carreras se construyen por pasos, nadie va de la segunda colombiana a la élite en un año.
+- **Sin renovación**: el tope siempre queda al menos 3 puntos por debajo de tu club actual.
+
+Ejemplos reales de la simulación: con 32 goles y OVR 78 en Millonarios (72) te buscan Man. City, Atlético y Aston Villa; con una temporada normal, Peñarol o Rosario Central; de suplente sin goles, Bastia o Modena. Y desde el Barcelona con un año perdido, aparecen Zürich o Alavés.
+
+Cada tarjeta de oferta muestra un chip con el ranking del club y una flecha verde/roja según sea un paso adelante o atrás. Si ya estás en la élite (90+), los grandes siguen interesados aunque no haya nada por encima.
+
 ### Trofeos
 
 Cada trofeo se guarda con su **nombre específico** y se dibuja como SVG (sin emojis). Pasá el mouse por encima para ver el nombre; la vitrina los agrupa con contador (×2, ×3…).
@@ -86,6 +103,22 @@ Cada trofeo se guarda con su **nombre específico** y se dibuja como SVG (sin em
 | Equipo del Año | "Equipo del Año · La Liga" | Nota ≥ 7.5 |
 | Goleador | "Goleador de la Serie A" | 25+ goles en la temporada |
 
+### Animación de la simulación
+
+Al simular una temporada, la propia aparición de los números hace de animación, en una secuencia definida en `SEQ` (`src/components/CountUp.jsx`):
+
+```
+OVR principal (0ms) → Valor de mercado (300ms) → OVR de la fila (600ms)
+   → PJ (900ms) → GLS (1200ms) → AST (1500ms) → celebración del trofeo (2450ms)
+```
+
+- El **OVR** y el **valor de mercado** cuentan desde los datos de la temporada anterior hasta los nuevos; junto al OVR aparece un badge verde o rojo con la diferencia (`+3`, `-2`) durante unos segundos.
+- En la nueva fila de la línea de tiempo cada dato entra con un *pop* mientras cuenta, respetando el orden de arriba; las temporadas anteriores quedan quietas.
+- Los **totales de carrera** animan desde el acumulado anterior con los mismos tiempos (clubes → selección → total).
+- La **celebración del trofeo** entra 300ms después de que termina la animación de AST. Si el título viene de un evento (penal, Mundial), donde no hay secuencia de números, entra enseguida.
+
+Todo respeta `prefers-reduced-motion`: con esa preferencia activa los valores aparecen directamente.
+
 Al ganar cualquier título aparece una **celebración a pantalla completa**: el trofeo en grande con fuegos artificiales animados durante 2 segundos (`src/components/TrophyCelebration.jsx`).
 
 ### Mundial y selección
@@ -93,7 +126,7 @@ Al ganar cualquier título aparece una **celebración a pantalla completa**: el 
 Aceptar la convocatoria a la selección desbloquea el circuito internacional:
 
 - **Mundial** cada 4 años de carrera (18, 22, 26, 30, 34, 38). El resultado depende de tu OVR y reputación: campeón directo, final (que se define por penal), semis, cuartos o fase de grupos.
-- **Penal decisivo** (25% por temporada) por la copa de tu confederación — Copa América, Eurocopa, Copa Oro, Copa Asiática o Copa Africana. Si convertís, el trofeo se suma a tu vitrina y a la temporada correspondiente.
+- **Finales**: si tu selección llega a la final, la mitad de las veces se define desde el punto del penal (evento jugable: elegís palo, 65% de convertir) y la otra mitad se simula directamente con un 50/50. En ambos casos, ganar suma el trofeo a tu vitrina y a la temporada correspondiente, con su celebración.
 
 ### Estadísticas con la selección
 
@@ -167,6 +200,7 @@ src/
 │   ├── SetupScreen.jsx       # Creación del jugador (identidad, país, posición)
 │   └── GameScreen.jsx        # Carrera: panel del jugador + línea de tiempo
 ├── components/
+│   ├── CountUp.jsx           # Números animados + badge de diferencia
 │   ├── TrophyCelebration.jsx # Celebración con fuegos artificiales (canvas)
 │   ├── HallOfFame.jsx        # Listado de carreras terminadas
 │   ├── JerseyPreview.jsx     # Camiseta SVG con apellido y dorsal en vivo
@@ -191,6 +225,7 @@ src/
 │   ├── positions.js          # Coordenadas de posiciones en la cancha
 │   ├── kits.js               # Colores de camiseta por selección nacional
 │   ├── rivals.js             # Pares de clásicos rivales
+│   ├── clubRatings.js        # Ranking mundial de clubes (0-100)
 │   └── events.js             # Eventos de carrera (con pesos de sorteo)
 └── utils/
     ├── gameLogic.js          # Stats, ofertas, trofeos, premios, Mundial, salarios

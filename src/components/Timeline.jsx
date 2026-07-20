@@ -4,15 +4,31 @@ import OvrBadge from "./OvrBadge";
 import Trophy from "./Trophy";
 import ClubLogo from "./ClubLogo";
 import Flag from "./Flag";
+import CountUp, { SEQ } from "./CountUp";
 import { IconMatches, IconBall, IconAssist, IconGoalConceded, IconCleanSheet } from "./Icons";
 
-function StatCell({ icon, value, w = "w-9 lg:w-12" }) {
+function StatCell({ icon, value, w = "w-9 lg:w-12", animate = false, delay = 0 }) {
+  const content = !animate ? (
+    value
+  ) : typeof value === "string" && value.includes("/") ? (
+    <>
+      <CountUp value={value.split("/")[0]} duration={650} delay={delay} />
+      <span className="opacity-60">/</span>
+      <CountUp value={value.split("/")[1]} duration={650} delay={delay} />
+    </>
+  ) : (
+    <CountUp value={value} duration={650} delay={delay} />
+  );
+
   return (
     <span
-      className={`${w} flex shrink-0 items-center justify-end gap-1 text-[11px] font-bold text-zinc-300 lg:text-[12px]`}
+      className={`${w} flex shrink-0 items-center justify-end gap-1 text-[11px] font-bold text-zinc-300 lg:text-[12px] ${
+        animate ? "stat-reveal" : ""
+      }`}
+      style={animate ? { animationDelay: `${delay}ms` } : undefined}
     >
       {icon}
-      {value}
+      {content}
     </span>
   );
 }
@@ -75,6 +91,8 @@ export default function Timeline({
   nationality,
 }) {
   const [openAge, setOpenAge] = useState(null);
+  // Solo la última temporada jugada anima sus números
+  const lastAge = history.length ? history[history.length - 1].age : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -98,6 +116,7 @@ export default function Timeline({
 
           const hasNt = !!row?.nt;
           const open = hasNt && openAge === age;
+          const isNew = !!row && age === lastAge;
 
           return (
             <div key={age}>
@@ -176,21 +195,31 @@ export default function Timeline({
               {/* OVR + stats */}
               {row && (
                 <>
-                  <span className="flex w-8 shrink-0 justify-end lg:w-9">
-                    <OvrBadge ovr={row.ovr} size={24} />
+                  {/* Secuencia: OVR → PJ → GLS → AST */}
+                  <span
+                    className={`flex w-8 shrink-0 justify-end lg:w-9 ${isNew ? "stat-reveal" : ""}`}
+                    style={isNew ? { animationDelay: `${SEQ.ovrRow}ms` } : undefined}
+                  >
+                    <OvrBadge ovr={row.ovr} size={24} animate={isNew} delay={SEQ.ovrRow} />
                   </span>
                   <StatCell
                     icon={<IconMatches size={11} />}
                     value={row.pjMax ? `${row.pj}/${row.pjMax}` : row.pj}
                     w="w-14 lg:w-16"
+                    animate={isNew}
+                    delay={SEQ.pj}
                   />
                   <StatCell
                     icon={isGK ? <IconGoalConceded size={11} /> : <IconBall size={11} />}
                     value={isGK ? row.gc : row.gls}
+                    animate={isNew}
+                    delay={SEQ.gls}
                   />
                   <StatCell
                     icon={isGK ? <IconCleanSheet size={11} /> : <IconAssist size={11} />}
                     value={isGK ? row.vi : row.ast}
+                    animate={isNew}
+                    delay={SEQ.ast}
                   />
                 </>
               )}

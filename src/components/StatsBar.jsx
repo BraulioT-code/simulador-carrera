@@ -1,5 +1,24 @@
 import { IconMatches, IconBall, IconAssist, IconGoalConceded, IconCleanSheet } from "./Icons";
 import Flag from "./Flag";
+import CountUp, { SEQ } from "./CountUp";
+
+/**
+ * Valor animado; soporta el formato "jugados/posibles".
+ * Anima desde el total anterior, así se ve el incremento de la temporada.
+ */
+function StatValue({ value, delay = 0 }) {
+  if (typeof value === "string" && value.includes("/")) {
+    const [a, b] = value.split("/");
+    return (
+      <>
+        <CountUp value={a} fromPrevious duration={700} delay={delay} />
+        <span className="opacity-60">/</span>
+        <CountUp value={b} fromPrevious duration={700} delay={delay} />
+      </>
+    );
+  }
+  return <CountUp value={value} fromPrevious duration={700} delay={delay} />;
+}
 
 /**
  * Totales de carrera con desglose club / selección.
@@ -69,7 +88,9 @@ export default function StatsBar({
           <div className="mt-1 grid grid-cols-[54px_1fr_1fr_1fr] items-center gap-1">
             <div className="text-[9px] font-bold tracking-wide text-zinc-500">CLUBES</div>
             {club.map((v, i) => (
-              <Cell key={i}>{v}</Cell>
+              <Cell key={i}>
+                <StatValue value={v} delay={[SEQ.pj, SEQ.gls, SEQ.ast][i]} />
+              </Cell>
             ))}
           </div>
 
@@ -81,7 +102,7 @@ export default function StatsBar({
             </div>
             {nat.map((v, i) => (
               <div key={i} className="text-center text-[12px] font-bold text-sky-300">
-                {v}
+                <StatValue value={v} delay={[SEQ.pj, SEQ.gls, SEQ.ast][i] + 120} />
               </div>
             ))}
           </div>
@@ -91,7 +112,7 @@ export default function StatsBar({
             <div className="text-[9px] font-black tracking-wide text-zinc-400">TOTAL</div>
             {total.map((v, i) => (
               <Cell key={i} strong>
-                {v}
+                <StatValue value={v} delay={[SEQ.pj, SEQ.gls, SEQ.ast][i] + 240} />
               </Cell>
             ))}
           </div>
@@ -101,7 +122,7 @@ export default function StatsBar({
           <div className="text-[9px] font-black tracking-wide text-zinc-400">TOTAL</div>
           {club.map((v, i) => (
             <Cell key={i} strong>
-              {v}
+              <StatValue value={v} delay={[SEQ.pj, SEQ.gls, SEQ.ast][i]} />
             </Cell>
           ))}
         </div>

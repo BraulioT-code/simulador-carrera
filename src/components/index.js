@@ -10,4 +10,5 @@ export { default as Flag } from "./Flag";
 export { default as ClubLogo } from "./ClubLogo";
 export { default as JerseyPreview } from "./JerseyPreview";
 export { default as TrophyCelebration } from "./TrophyCelebration";
+export { default as CountUp } from "./CountUp";
 export { default as HallOfFame } from "./HallOfFame";
