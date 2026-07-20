@@ -1,41 +1,30 @@
+import { IconMatches, IconBall, IconAssist, IconGoalConceded, IconCleanSheet } from "./Icons";
+
+function Stat({ label, value, icon }) {
+  return (
+    <div className="text-center">
+      <div className="text-[9px] font-semibold tracking-wider text-zinc-500">{label}</div>
+      <div className="flex items-center justify-center gap-1.5 text-base font-extrabold">
+        {icon}
+        <span>{value}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function StatsBar({ pj, gls, ast, gc, vi, isGK }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-around",
-        background: "#111",
-        borderRadius: 8,
-        padding: "8px",
-        marginBottom: 8,
-      }}
-    >
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 9, color: "#666" }}>PJ</div>
-        <div style={{ fontSize: 16, fontWeight: 800 }}>🏟️ {pj}</div>
-      </div>
-
+    <div className="mb-2 flex justify-around rounded-lg border-y border-zinc-800/60 py-2">
+      <Stat label="PJ" value={pj} icon={<IconMatches size={13} />} />
       {isGK ? (
         <>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 9, color: "#666" }}>GC</div>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>🥅 {gc}</div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 9, color: "#666" }}>VI</div>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>🧤 {vi}</div>
-          </div>
+          <Stat label="GC" value={gc} icon={<IconGoalConceded size={13} />} />
+          <Stat label="VI" value={vi} icon={<IconCleanSheet size={13} />} />
         </>
       ) : (
         <>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 9, color: "#666" }}>GLS</div>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>⚽ {gls}</div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 9, color: "#666" }}>AST</div>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>🅰️ {ast}</div>
-          </div>
+          <Stat label="GLS" value={gls} icon={<IconBall size={13} />} />
+          <Stat label="AST" value={ast} icon={<IconAssist size={13} />} />
         </>
       )}
     </div>

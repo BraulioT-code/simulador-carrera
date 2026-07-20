@@ -6,7 +6,7 @@ export default function App() {
   const game = useCareerGame();
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000", color: "#fff" }}>
+    <div className="min-h-screen bg-[#0a0a0b] text-white">
       {game.phase === PHASES.SETUP ? (
         <SetupScreen onConfirm={game.startGame} />
       ) : (

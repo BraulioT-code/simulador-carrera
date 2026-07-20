@@ -2,15 +2,18 @@ export { default as LEAGUES } from "./leagues";
 export { default as ALL_COUNTRIES } from "./countries";
 export { default as POS_MAP } from "./positions";
 export { default as EVENTS } from "./events";
+export { getTeamColor, teamTint } from "./teamColors";
+export { getLogoUrl, LOGO_SEARCH_NAMES } from "./teamLogos";
 
 export const AGES = Array.from({ length: 12 }, (_, i) => 16 + i * 2);
 
+// Trofeos por id (se dibujan como SVG en components/Trophy.jsx)
 export const TROPHY_NAMES = {
-  "🏆": "Liga",
-  "🏅": "Copa",
-  "⭐": "Balón de Oro",
-  "👟": "Bota de Oro",
-  "🌍": "Copa del Mundo",
+  liga: "Liga",
+  copa: "Copa",
+  ballon: "Balón de Oro",
+  bota: "Bota de Oro",
+  mundial: "Copa del Mundo",
 };
 
 export const PHASES = {

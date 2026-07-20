@@ -1,13 +1,9 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@import "tailwindcss";
 
 body {
-  background: #000;
+  background: #0a0a0b;
   color: #fff;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   min-height: 100vh;
 }
 
@@ -21,4 +17,16 @@ input[inputmode="numeric"]::-webkit-inner-spin-button {
 input[inputmode="numeric"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* Scrollbar fina para las listas oscuras */
+.dark-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.dark-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark-scroll::-webkit-scrollbar-thumb {
+  background: #3a3a3f;
+  border-radius: 4px;
 }

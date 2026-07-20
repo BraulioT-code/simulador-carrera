@@ -6,3 +6,6 @@ export { default as PlayerHeader } from "./PlayerHeader";
 export { default as StatsBar } from "./StatsBar";
 export { default as TrophyCabinet } from "./TrophyCabinet";
 export { default as Timeline } from "./Timeline";
+export { default as Flag } from "./Flag";
+export { default as ClubLogo } from "./ClubLogo";
+export { default as JerseyPreview } from "./JerseyPreview";

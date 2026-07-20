@@ -7,13 +7,18 @@ export const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 /** Clamp: limita un valor entre lo y hi */
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-/** Color según OVR */
+/** Color de fondo según OVR (estilo dorado/plateado/bronce) */
 export function ovrColor(ovr) {
   if (ovr >= 90) return "#c026d3";
-  if (ovr >= 80) return "#22c55e";
-  if (ovr >= 65) return "#eab308";
-  if (ovr >= 50) return "#f97316";
-  return "#ef4444";
+  if (ovr >= 80) return "#eab308";
+  if (ovr >= 65) return "#64748b";
+  if (ovr >= 50) return "#92400e";
+  return "#7f1d1d";
+}
+
+/** Color de texto legible sobre ovrColor */
+export function ovrTextColor(ovr) {
+  return ovr >= 80 && ovr < 90 ? "#231a00" : "#ffffff";
 }
 
 /** Valor de mercado en millones */

@@ -4,9 +4,11 @@ import { randInt, clamp, pick } from "../utils/helpers";
 import {
   generateStats,
   getOffers,
+  getDebutOffers,
   generateTrophies,
   calculateOvrDelta,
   shouldRetire,
+  evaluateSeason,
 } from "../utils/gameLogic";
 
 const initialState = {
@@ -46,7 +48,7 @@ export default function useCareerGame() {
 
     update({
       player: newPlayer,
-      offers: getOffers(3),
+      offers: getDebutOffers(setup.country, 3),
       firstClub: "",
       phase: PHASES.CANTERA,
     });
@@ -77,6 +79,8 @@ export default function useCareerGame() {
 
     const stats = generateStats(player.position, player.overall, player.age);
     const trophies = generateTrophies(player);
+    // Rendimiento real de la temporada: decide si el club quiere renovar
+    const season = evaluateSeason(player, stats);
 
     const newHistory = [
       ...history,
@@ -97,8 +101,7 @@ export default function useCareerGame() {
     const delta = calculateOvrDelta(player.age);
     const newOvr = clamp(player.overall + delta, 40, 99);
     const newAge = player.age + 2;
-    const goodSeason = delta >= 0;
-
+    
     const updatedPlayer = {
       ...player,
       overall: newOvr,
@@ -111,7 +114,7 @@ export default function useCareerGame() {
       update({
         player: updatedPlayer,
         history: newHistory,
-        canStay: goodSeason,
+        canStay: season.good,
         message: "",
         phase: PHASES.OVER,
       });
@@ -133,7 +136,7 @@ export default function useCareerGame() {
       update({
         player: updatedPlayer,
         history: newHistory,
-        canStay: goodSeason,
+        canStay: season.good,
         message: "",
         event: {
           title: "Regreso triunfal",
@@ -157,7 +160,7 @@ export default function useCareerGame() {
       update({
         player: updatedPlayer,
         history: newHistory,
-        canStay: goodSeason,
+        canStay: season.good,
         message: "",
         event: { ...pick(EVENTS) },
         phase: PHASES.EVENT,
@@ -166,7 +169,7 @@ export default function useCareerGame() {
       update({
         player: updatedPlayer,
         history: newHistory,
-        canStay: goodSeason,
+        canStay: season.good,
         message: "",
         offers: getOffers(3, player.team),
         phase: PHASES.TRANSFER,

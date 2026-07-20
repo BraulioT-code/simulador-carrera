@@ -1,18 +1,14 @@
-import { ovrColor } from "../utils/helpers";
+import { ovrColor, ovrTextColor } from "../utils/helpers";
 
 export default function OvrBadge({ ovr, size = 32 }) {
   return (
     <span
+      className="inline-flex items-center justify-center rounded-md font-black"
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
         minWidth: size,
         height: size * 0.78,
-        borderRadius: 5,
         background: ovrColor(ovr),
-        color: "#fff",
-        fontWeight: 900,
+        color: ovrTextColor(ovr),
         fontSize: size * 0.44,
         padding: "0 3px",
       }}

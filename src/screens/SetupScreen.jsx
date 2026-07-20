@@ -1,21 +1,9 @@
 import { useState } from "react";
-import { CountryPicker, PitchSelector } from "../components";
-
-const inputStyle = {
-  width: "100%",
-  padding: "8px 10px",
-  borderRadius: 6,
-  border: "1px solid #333",
-  background: "#1a1a1a",
-  color: "#fff",
-  fontSize: 13,
-  outline: "none",
-  boxSizing: "border-box",
-};
+import { CountryPicker, PitchSelector, JerseyPreview } from "../components";
 
 export default function SetupScreen({ onConfirm }) {
   const [surname, setSurname] = useState("");
-  const [number, setNumber] = useState(7);
+  const [number, setNumber] = useState(10);
   const [foot, setFoot] = useState("Derecha");
   const [country, setCountry] = useState("");
   const [position, setPosition] = useState("");
@@ -24,7 +12,15 @@ export default function SetupScreen({ onConfirm }) {
 
   const handleConfirm = () => {
     if (!canConfirm) return;
-    onConfirm({ surname: surname.trim(), number, foot, country, position });
+    onConfirm({ surname: surname.trim(), number: number || 10, foot, country, position });
+  };
+
+  const handleBack = () => {
+    setSurname("");
+    setNumber(10);
+    setFoot("Derecha");
+    setCountry("");
+    setPosition("");
   };
 
   const handleNumberChange = (e) => {
@@ -37,58 +33,65 @@ export default function SetupScreen({ onConfirm }) {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px" }}>
-      <div style={{ background: "#111", borderRadius: 14, padding: 20, border: "1px solid #222" }}>
-        <h1 style={{ margin: "0 0 16px", fontSize: 22, fontWeight: 900 }}>Definí tu identidad</h1>
+    <div className="mx-auto max-w-[1200px] p-4">
+      <div className="overflow-hidden rounded-2xl bg-[#0d0d10] shadow-2xl ring-1 ring-zinc-800/60">
+        {/* Encabezado */}
+        <div className="border-b border-zinc-800/70 px-7 py-5">
+          <h1 className="text-2xl font-black tracking-tight">Definí tu identidad</h1>
+        </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        {/* Contenido */}
+        <div className="grid grid-cols-1 gap-8 px-7 py-6 md:grid-cols-[1fr_1.3fr_1fr]">
           {/* Columna 1: Identidad */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#eab308", marginBottom: 10, textAlign: "center" }}>
-              Identidad
+            <div className="mb-4 text-center text-base font-extrabold">Identidad</div>
+
+            <JerseyPreview surname={surname} number={number} />
+
+            <div className="mt-5 flex gap-3">
+              <div className="flex-1">
+                <div className="mb-1.5 text-[9px] font-bold tracking-[0.14em] text-zinc-500">
+                  APELLIDO
+                </div>
+                <input
+                  value={surname}
+                  onChange={(e) => setSurname(e.target.value.toUpperCase())}
+                  placeholder="APELLIDO"
+                  className="w-full rounded-lg bg-zinc-800/70 px-3 py-2.5 text-[13px] font-bold text-white outline-none ring-1 ring-transparent placeholder:text-zinc-600 focus:ring-zinc-500"
+                />
+              </div>
+              <div className="w-20">
+                <div className="mb-1.5 text-[9px] font-bold tracking-[0.14em] text-zinc-500">
+                  NÚMERO
+                </div>
+                <input
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={number}
+                  onChange={handleNumberChange}
+                  onKeyDown={(e) => {
+                    if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault();
+                  }}
+                  className="w-full rounded-lg bg-zinc-800/70 px-3 py-2.5 text-center text-[13px] font-bold text-white outline-none ring-1 ring-transparent focus:ring-zinc-500"
+                />
+              </div>
             </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 9, color: "#555", marginBottom: 3 }}>APELLIDO</div>
-              <input
-                value={surname}
-                onChange={(e) => setSurname(e.target.value.toUpperCase())}
-                style={inputStyle}
-              />
-            </div>
-
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 9, color: "#555", marginBottom: 3 }}>NÚMERO</div>
-              <input
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={number}
-                onChange={handleNumberChange}
-                onKeyDown={(e) => {
-                  if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault();
-                }}
-                style={{ ...inputStyle, MozAppearance: "textfield", appearance: "textfield" }}
-              />
-            </div>
-
-            <div>
-              <div style={{ fontSize: 9, color: "#555", marginBottom: 3 }}>PIERNA HÁBIL</div>
-              <div style={{ display: "flex", gap: 4 }}>
+            <div className="mt-4">
+              <div className="mb-1.5 text-[9px] font-bold tracking-[0.14em] text-zinc-500">
+                PIERNA HÁBIL
+              </div>
+              <div className="flex rounded-xl bg-zinc-800/70 p-1">
                 {["Izquierda", "Derecha"].map((f) => (
                   <button
                     key={f}
+                    type="button"
                     onClick={() => setFoot(f)}
-                    style={{
-                      flex: 1,
-                      padding: "7px",
-                      borderRadius: 6,
-                      border: foot === f ? "2px solid #fff" : "1px solid #333",
-                      background: foot === f ? "#fff" : "transparent",
-                      color: foot === f ? "#000" : "#fff",
-                      fontSize: 12,
-                      fontWeight: foot === f ? 700 : 400,
-                      cursor: "pointer",
-                    }}
+                    className={`flex-1 rounded-lg py-2 text-[13px] transition-colors ${
+                      foot === f
+                        ? "bg-white font-extrabold text-black"
+                        : "font-semibold text-zinc-400 hover:text-white"
+                    }`}
                   >
                     {f}
                   </button>
@@ -99,36 +102,35 @@ export default function SetupScreen({ onConfirm }) {
 
           {/* Columna 2: Nacionalidad */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 10, textAlign: "center" }}>
-              Nacionalidad
-            </div>
+            <div className="mb-4 text-center text-base font-extrabold">Nacionalidad</div>
             <CountryPicker value={country} onChange={setCountry} />
           </div>
 
           {/* Columna 3: Posición */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 10, textAlign: "center" }}>
-              Posición
-            </div>
+            <div className="mb-4 text-center text-base font-extrabold">Posición</div>
             <PitchSelector value={position} onChange={setPosition} />
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+        {/* Pie */}
+        <div className="flex items-center justify-between border-t border-zinc-800/70 px-7 py-4">
           <button
+            type="button"
+            onClick={handleBack}
+            className="rounded-full border border-zinc-500 px-7 py-2.5 text-sm font-bold text-white transition-colors hover:bg-zinc-800"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
             onClick={handleConfirm}
             disabled={!canConfirm}
-            style={{
-              padding: "10px 28px",
-              borderRadius: 20,
-              border: "1px solid #fff",
-              background: "transparent",
-              color: "#fff",
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: "pointer",
-              opacity: canConfirm ? 1 : 0.3,
-            }}
+            className={`rounded-full px-7 py-2.5 text-sm font-bold transition-colors ${
+              canConfirm
+                ? "bg-white text-black hover:bg-zinc-200"
+                : "cursor-not-allowed bg-zinc-600/60 text-zinc-300"
+            }`}
           >
             Confirmar identidad
           </button>
