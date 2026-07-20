@@ -78,6 +78,10 @@ export default function useCareerGame() {
     if (!player) return;
 
     const stats = generateStats(player.position, player.overall, player.age);
+    // Minutos reducidos por decisiones de eventos (ej: conflicto con el DT)
+    if (player.pjPenalty) {
+      stats.pj = Math.max(5, Math.round(stats.pj * player.pjPenalty));
+    }
     const trophies = generateTrophies(player);
     // Rendimiento real de la temporada: decide si el club quiere renovar
     const season = evaluateSeason(player, stats);
@@ -110,6 +114,7 @@ export default function useCareerGame() {
       age: newAge,
       reputation: clamp(player.reputation + randInt(2, 8), 0, 100),
       contractYears: player.contractYears - 1,
+      pjPenalty: null,
     };
 
     if (shouldRetire(newAge, newOvr)) {
@@ -136,7 +141,7 @@ export default function useCareerGame() {
     };
     const natRegion = Object.values(LEAGUES).find((l) => l.c === player.nationality)?.r;
 
-    if ((player.intCaps || 0) > 0 && player.age >= 20 && Math.random() < 0.12) {
+    if ((player.intCaps || 0) > 0 && player.age >= 20 && Math.random() < 0.25) {
       update({
         player: updatedPlayer,
         history: newHistory,
@@ -177,11 +182,13 @@ export default function useCareerGame() {
             {
               label: `Volver a\n${firstClub}`,
               sub: leagueEntry?.[1]?.c || "",
+              fx: [{ t: "Cierre soñado en casa", g: true }],
               eff: { ret: true },
             },
             {
               label: `Quedarse en\n${player.team}`,
               sub: player.league,
+              fx: [{ t: "Continuidad", g: true }],
               eff: {},
             },
           ],
@@ -189,12 +196,60 @@ export default function useCareerGame() {
         phase: PHASES.EVENT,
       });
     } else if (roll < 0.55) {
+      // Eventos dinámicos especiales o evento del catálogo
+      let ev;
+      const r2 = Math.random();
+      const cupName = (CUPS[natRegion] || "la Copa del Mundo").replace(/^la /, "");
+
+      if (r2 < 0.15) {
+        const offer = getOffers(1, player.team)[0];
+        ev = {
+          title: "Declaración polémica",
+          desc: "Criticás públicamente al entrenador tras una derrota dura y el vestuario se puso tenso.",
+          choices: [
+            {
+              label: "Pedir disculpas",
+              fx: [{ t: "Disminuyen tus minutos", g: false }],
+              eff: { pjPenalty: 0.7 },
+            },
+            { transfer: offer, eff: {} },
+          ],
+        };
+      } else if (r2 < 0.3 && (player.intCaps || 0) > 0) {
+        ev = {
+          title: "Conflicto Club-Selección",
+          desc: "Tu club se niega a permitirte jugar un amistoso preparatorio con tu selección.",
+          choices: [
+            {
+              label: "Ir igual",
+              visual: "flag",
+              fx: [
+                { t: `Convocado a ${cupName}`, g: true },
+                { t: "Te cuelgan en tu club", g: false },
+              ],
+              eff: { intCaps: true, rep: 8, pjPenalty: 0.7 },
+            },
+            {
+              label: "Acatar",
+              visual: "club",
+              fx: [
+                { t: "Tu rol en el club no se modifica", g: true },
+                { t: `No te convocan a ${cupName}`, g: false },
+              ],
+              eff: { morale: -3 },
+            },
+          ],
+        };
+      } else {
+        ev = { ...pickWeighted(EVENTS) };
+      }
+
       update({
         player: updatedPlayer,
         history: newHistory,
         canStay: season.good,
         message: "",
-        event: { ...pickWeighted(EVENTS) },
+        event: ev,
         phase: PHASES.EVENT,
       });
     } else {
@@ -212,8 +267,26 @@ export default function useCareerGame() {
   const handleChoice = useCallback(
     (choice) => {
       if (!player) return;
+
+      // Elección de fichaje dentro de un evento
+      if (choice.transfer) {
+        const o = choice.transfer;
+        update({
+          player: {
+            ...player,
+            team: o.team,
+            league: o.league,
+            contractYears: randInt(2, 4),
+            pjPenalty: null,
+          },
+          message: `¡Fichaste por ${o.team}!`,
+          phase: PHASES.PLAYING,
+        });
+        return;
+      }
+
       let changes = {};
-      let msg = choice.label.replace(/\n/g, " ");
+      let msg = (choice.label || "").replace(/\n/g, " ");
       const eff = choice.eff;
 
       if (!eff || Object.keys(eff).length === 0) {
@@ -224,6 +297,7 @@ export default function useCareerGame() {
         return;
       }
 
+      // "resolved" viene de la UI cuando la animación de ruleta ya definió el resultado
       if (eff === "penalty") {
         if (Math.random() < 0.65) {
           changes = {
@@ -240,7 +314,8 @@ export default function useCareerGame() {
           msg = "El arquero adivinó… fallaste el penal decisivo";
         }
       } else if (eff === "gamble") {
-        if (Math.random() < 0.7) {
+        const success = choice.resolved ?? Math.random() < 0.7;
+        if (success) {
           changes = { overall: clamp(player.overall + 3, 40, 99) };
           msg = "+3 OVR ¡Éxito!";
         } else {
@@ -252,6 +327,7 @@ export default function useCareerGame() {
         if (eff.rep) changes.reputation = clamp(player.reputation + eff.rep, 0, 100);
         if (eff.morale) changes.morale = clamp(player.morale + eff.morale, 0, 100);
         if (eff.intCaps) changes.intCaps = (player.intCaps || 0) + randInt(3, 8);
+        if (eff.pjPenalty) changes.pjPenalty = eff.pjPenalty;
 
         if (eff.ret && firstClub) {
           const lg =

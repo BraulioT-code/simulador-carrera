@@ -1,8 +1,43 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { PlayerHeader, StatsBar, TrophyCabinet, Timeline, Flag, ClubLogo } from "../components";
 import { ALL_COUNTRIES, POS_MAP, PHASES, teamTint } from "../data";
 import { marketValue } from "../utils/helpers";
 import { generateCareerImage } from "../utils/careerImage";
+
+function FxChip({ t, g, active = false, dim = false, landed = false }) {
+  return (
+    <span
+      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-left text-[10px] font-bold leading-tight transition-all duration-100 ${
+        g ? "bg-emerald-950/70 text-emerald-400" : "bg-red-950/60 text-red-400"
+      } ${active ? "scale-[1.06] ring-2 ring-white/80" : dim ? "opacity-35" : ""} ${
+        landed ? "animate-pulse" : ""
+      }`}
+    >
+      <svg width="11" height="11" viewBox="0 0 12 12" className="shrink-0">
+        {g ? (
+          <path
+            d="M1.5 9 L5 5.5 L7 7.5 L10.5 3.5 M10.5 3.5 h-3 M10.5 3.5 v3"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <path
+            d="M1.5 3 L5 6.5 L7 4.5 L10.5 8.5 M10.5 8.5 h-3 M10.5 8.5 v-3"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+      </svg>
+      {t}
+    </span>
+  );
+}
 
 function PenaltyScene() {
   return (
@@ -126,6 +161,43 @@ export default function GameScreen({
   const [shareMsg, setShareMsg] = useState("");
   const [sharing, setSharing] = useState(false);
 
+  // Ruleta de chips para elecciones con azar (eff: "gamble")
+  const [spin, setSpin] = useState(null); // { idx, chip, landed }
+  const spinningRef = useRef(false);
+
+  const handleEventChoice = (c, i) => {
+    if (spinningRef.current) return;
+    const isGamble = c.eff === "gamble" && (c.fx?.length || 0) >= 2;
+    if (!isGamble) {
+      onHandleChoice(c);
+      return;
+    }
+
+    spinningRef.current = true;
+    const success = Math.random() < 0.7;
+    const target = Math.max(0, c.fx.findIndex((f) => f.g === success));
+    let chip = 0;
+    let delay = 90;
+    setSpin({ idx: i, chip, landed: false });
+
+    const tick = () => {
+      delay *= 1.22;
+      if (delay > 480) {
+        setSpin({ idx: i, chip: target, landed: true });
+        setTimeout(() => {
+          spinningRef.current = false;
+          setSpin(null);
+          onHandleChoice({ ...c, resolved: success });
+        }, 1000);
+        return;
+      }
+      chip = 1 - chip;
+      setSpin({ idx: i, chip, landed: false });
+      setTimeout(tick, delay);
+    };
+    setTimeout(tick, delay);
+  };
+
   const shareCareer = async (copy) => {
     if (sharing) return;
     setSharing(true);
@@ -207,12 +279,18 @@ export default function GameScreen({
           {(phase === PHASES.CANTERA || phase === PHASES.TRANSFER) && (
             <div>
               <h3 className="mb-1 text-[15px] font-extrabold">
-                {phase === PHASES.CANTERA ? "Oferta de cantera" : "Ofertas de clubes"}
+                {phase === PHASES.CANTERA
+                  ? "Oferta de cantera"
+                  : canStay
+                    ? "Ofertas de clubes"
+                    : "Fin de ciclo"}
               </h3>
               <p className="mb-2.5 text-[12px] text-zinc-500">
                 {phase === PHASES.CANTERA
                   ? `Clubes de ${player.nationality} quieren sumarte a su proyecto juvenil. Elegí dónde empieza tu carrera.`
-                  : "Elegí tu próximo destino o quedate en tu club."}
+                  : canStay
+                    ? "Elegí tu próximo destino o quedate en tu club."
+                    : "Tu club decidió no renovarte. Elegí una nueva institución para continuar."}
               </p>
 
               <div className="flex gap-2">
@@ -247,11 +325,6 @@ export default function GameScreen({
                 >
                   Quedarse en {player.team}
                 </button>
-              )}
-              {phase === PHASES.TRANSFER && !canStay && (
-                <div className="mt-2 rounded-lg bg-red-950/60 py-2 text-center text-[12px] font-semibold text-red-400">
-                  Bajo rendimiento: tu club no te renueva
-                </div>
               )}
             </div>
           )}
@@ -299,18 +372,72 @@ export default function GameScreen({
             <div>
               <h3 className="mb-1 text-base font-extrabold">{event.title}</h3>
               <p className="mb-3 text-[12px] leading-relaxed text-zinc-500">{event.desc}</p>
-              <div className="flex gap-2">
+              <div className="flex items-stretch gap-2">
                 {(event.choices || []).map((c, i) => (
                   <button
                     key={i}
                     type="button"
-                    onClick={() => onHandleChoice(c)}
-                    className="flex-1 rounded-xl border border-zinc-700/70 bg-zinc-900 p-3 text-center transition-colors hover:border-zinc-400"
+                    onClick={() => handleEventChoice(c, i)}
+                    disabled={!!spin}
+                    className="flex flex-1 flex-col items-center gap-2 rounded-xl border border-zinc-700/70 bg-zinc-900 p-3 text-center transition-colors hover:border-zinc-400 disabled:cursor-default"
+                    style={
+                      c.transfer
+                        ? {
+                            background: `linear-gradient(160deg, ${teamTint(c.transfer.team, c.transfer.league, 0.2)}, #17171b 75%)`,
+                          }
+                        : undefined
+                    }
                   >
-                    <div className="mb-1 whitespace-pre-line text-[13px] font-extrabold">
-                      {c.label}
-                    </div>
-                    <div className="text-[10px] text-zinc-500">{c.sub}</div>
+                    {c.transfer ? (
+                      <>
+                        <div className="text-[10px] text-zinc-500">Fichar por</div>
+                        <div className="text-[13px] font-extrabold leading-tight">
+                          {c.transfer.team}
+                        </div>
+                        <div className="flex flex-1 items-center">
+                          <ClubLogo team={c.transfer.team} league={c.transfer.league} size={42} />
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-zinc-400">
+                          <Flag code={c.transfer.code} className="w-3.5 h-[10px]" />
+                          {c.transfer.league}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="whitespace-pre-line text-[13px] font-extrabold">
+                          {c.label}
+                        </div>
+                        {c.visual === "flag" && natData && (
+                          <div className="flex flex-1 items-center">
+                            <Flag code={natData.c} className="h-12 w-[72px] rounded-md" />
+                          </div>
+                        )}
+                        {c.visual === "club" && (
+                          <div className="flex flex-1 items-center">
+                            <ClubLogo team={player.team} league={player.league} size={48} />
+                          </div>
+                        )}
+                        {c.fx?.length ? (
+                          <div className="mt-auto flex w-full flex-col items-stretch gap-1.5">
+                            {c.fx.map((f, j) => {
+                              const here = spin && spin.idx === i;
+                              return (
+                                <FxChip
+                                  key={j}
+                                  t={f.t}
+                                  g={f.g}
+                                  active={here && spin.chip === j}
+                                  dim={here && spin.chip !== j}
+                                  landed={here && spin.landed && spin.chip === j}
+                                />
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          c.sub && <div className="text-[10px] text-zinc-500">{c.sub}</div>
+                        )}
+                      </>
+                    )}
                   </button>
                 ))}
               </div>

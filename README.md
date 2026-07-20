@@ -53,6 +53,8 @@ Además, el 55% de los intervalos entre temporadas trae un **evento** (15 posibl
 
 El sorteo de eventos es **ponderado** (campo `w` en `src/data/events.js`): las lesiones pesan 0.4 y 0.25 frente a 1 del resto, así que aparecen solo de forma ocasional (~5% de los eventos).
 
+Cada elección muestra sus consecuencias como **chips de colores** (verde = beneficio, rojo = costo, campo `fx`). En las elecciones con azar (las 70/30), al hacer clic una **ruleta** salta entre el chip verde y el rojo desacelerando hasta caer en el resultado, y recién entonces se aplica el efecto, y algunas elecciones incluyen visuales (bandera de tu selección, escudo de tu club) o directamente un **fichaje por otro club**. Hay dos eventos dinámicos especiales: *Declaración polémica* (disculparte y perder minutos, o irte a un club interesado) y *Conflicto Club-Selección* (ir con tu selección y quedar colgado en el club, o acatar y perderte la convocatoria). Algunas decisiones aplican `pjPenalty`, que reduce tus minutos de la temporada siguiente y por lo tanto tu evaluación. Cuando el club no te renueva por bajo rendimiento, la fase de ofertas aparece como **"Fin de ciclo"**, sin opción de quedarte.
+
 Los partidos jugados se muestran como `jugados/posibles` (ej. `72/85`), tanto por temporada como en el total de carrera.
 
 ### Evaluación de rendimiento (renovación)
