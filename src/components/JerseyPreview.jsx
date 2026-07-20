@@ -28,12 +28,12 @@ export default function JerseyPreview({ surname, number, kit }) {
            C 27 99 29 104 34 106
            L 66 118
            C 71 120 76 117 78 112
-           L 84 98
-           L 84 196
-           C 84 203 89 208 96 208
-           L 144 208
-           C 151 208 156 203 156 196
-           L 156 98
+           L 80 100
+           L 80 196
+           C 80 203 85 208 92 208
+           L 148 208
+           C 155 208 160 203 160 196
+           L 160 100
            L 162 112
            C 164 117 169 120 174 118
            L 206 106
@@ -52,12 +52,12 @@ export default function JerseyPreview({ surname, number, kit }) {
            C 27 99 29 104 34 106
            L 66 118
            C 71 120 76 117 78 112
-           L 84 98
-           L 84 196
-           C 84 203 89 208 96 208
-           L 144 208
-           C 151 208 156 203 156 196
-           L 156 98
+           L 80 100
+           L 80 196
+           C 80 203 85 208 92 208
+           L 148 208
+           C 155 208 160 203 160 196
+           L 160 100
            L 162 112
            C 164 117 169 120 174 118
            L 206 106
@@ -69,8 +69,8 @@ export default function JerseyPreview({ surname, number, kit }) {
       />
 
       {/* sombras de axilas para dar profundidad */}
-      <path d="M84 98 L78 112 C80 104 82 100 84 96 Z" fill="#000" opacity=".18" />
-      <path d="M156 98 L162 112 C160 104 158 100 156 96 Z" fill="#000" opacity=".18" />
+      <path d="M80 100 L76 112 C77 105 78 101 80 97 Z" fill="#000" opacity=".18" />
+      <path d="M160 100 L164 112 C163 105 162 101 160 97 Z" fill="#000" opacity=".18" />
 
       {/* cuello redondo */}
       <path
@@ -122,11 +122,11 @@ export default function JerseyPreview({ surname, number, kit }) {
       {/* número */}
       <text
         x="120"
-        y="164"
+        y="158"
         textAnchor="middle"
         fontFamily="inherit"
         fontWeight="900"
-        fontSize="72"
+        fontSize="58"
         fill={text}
       >
         {number || "10"}

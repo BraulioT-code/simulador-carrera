@@ -28,8 +28,9 @@ pnpm preview    # sirve el build de producción
 5. Si ya jugaste con tu selección, puede tocarte un **penal decisivo** en la final del torneo de tu confederación (Copa América, Eurocopa, Copa Oro…): elegís palo y te jugás la gloria (65% de convertir: +reputación, +moral y +1 OVR; si el arquero adivina, lo pagás).
 6. A los 30+ tu primer club puede ofrecerte un **regreso triunfal**.
 7. El retiro llega después de los 38, o antes si el nivel cae demasiado.
+8. Al retirarte podés **copiar o descargar una imagen** con el resumen completo de tu carrera (ficha, totales, vitrina y las 12 temporadas) para compartirla donde quieras.
 
-En mobile, la pantalla de juego cabe completa sin scroll: barra superior con la marca, ficha del jugador, línea de tiempo compacta y panel de acciones como hoja inferior.
+En mobile la pantalla de juego arranca sin scroll (ficha compacta, línea de tiempo y panel de acciones como hoja inferior) y la página crece de forma natural a medida que la carrera se llena.
 
 ---
 
@@ -49,6 +50,8 @@ El OVR inicial es aleatorio (45–55) y evoluciona por temporada según la edad,
 | 34+   | −5 a −1            |
 
 Además, el 55% de los intervalos entre temporadas trae un **evento** (15 posibles), y varios de ellos permiten ganar o perder OVR directamente: entrenador personal (+2), pretemporada en altura (+2), videoanálisis (+1), rechazar publicidad para entrenar (+2), apuestas de entrenamiento/nutrición (+3/−2), vida nocturna (−2), lesión de ligamentos (−3/−1), crisis de confianza, etc. Con buen rendimiento y buenas decisiones, llegar a OVR 85+ es totalmente alcanzable.
+
+El sorteo de eventos es **ponderado** (campo `w` en `src/data/events.js`): las lesiones pesan 0.4 y 0.25 frente a 1 del resto, así que aparecen solo de forma ocasional (~5% de los eventos).
 
 Los partidos jugados se muestran como `jugados/posibles` (ej. `72/85`), tanto por temporada como en el total de carrera.
 
@@ -77,7 +80,11 @@ Cada trofeo se guarda con su **nombre específico** y se dibuja como SVG (sin em
 
 ### Valor de mercado
 
-Se calcula por rango de OVR con multiplicadores por edad: ×1.3 hasta los 21, ×0.7 desde los 30 y ×0.4 desde los 33.
+Se calcula por rango de OVR con multiplicadores por edad: ×1.3 hasta los 21, ×0.7 desde los 30 y ×0.4 desde los 33. Es estable dentro de cada temporada (memoizado por edad y OVR).
+
+### Imagen compartible de carrera
+
+Al finalizar la carrera, `src/utils/careerImage.js` dibuja en un canvas (a 2× de resolución) el resumen completo: ficha del jugador, totales, vitrina de trofeos con nombres y la línea de tiempo con colores y escudos de cada club. Usa los mismos SVG de trofeos de la app y los escudos ya cacheados durante la partida, con monogramas de respaldo, para que la exportación nunca falle por imágenes bloqueadas (CORS). El botón **Copiar imagen** la deja en el portapapeles (`navigator.clipboard`); si el navegador no lo permite, se descarga como PNG.
 
 ---
 
@@ -127,10 +134,12 @@ src/
 │   ├── teamColors.js         # Color primario por club + tintes
 │   ├── teamLogos.js          # IDs de escudos + nombres de búsqueda
 │   ├── positions.js          # Coordenadas de posiciones en la cancha
-│   └── events.js             # Eventos de carrera
+│   ├── kits.js               # Colores de camiseta por selección nacional
+│   └── events.js             # Eventos de carrera (con pesos de sorteo)
 └── utils/
     ├── gameLogic.js          # Stats, ofertas, trofeos, evaluación, retiro
-    └── helpers.js            # randInt, clamp, colores de OVR, valor de mercado
+    ├── careerImage.js        # Imagen resumen de la carrera (canvas exportable)
+    └── helpers.js            # randInt, clamp, pickWeighted, colores de OVR, valor de mercado
 ```
 
 ### Fases del juego

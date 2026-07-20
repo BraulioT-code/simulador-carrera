@@ -72,30 +72,98 @@ function drawLogo(ctx, img, team, league, x, y, size) {
   }
 }
 
-// Pequeño trofeo (copa) dibujado a mano
-function drawCup(ctx, x, y, h, gold = false) {
-  const grad = ctx.createLinearGradient(x, y, x, y + h);
-  if (gold) {
-    grad.addColorStop(0, "#fdeaa0");
-    grad.addColorStop(1, "#b07d1e");
-  } else {
-    grad.addColorStop(0, "#fafafa");
-    grad.addColorStop(1, "#8e8e98");
+/* ===== Trofeos: los mismos SVG de la app, cargados como imagen ===== */
+
+const SILVER = ["#fafafa", "#c8c8cf", "#8e8e98"];
+const GOLD = ["#fdeaa0", "#f0c243", "#b07d1e"];
+
+function gradDef(colors) {
+  return `<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+    <stop offset='0' stop-color='${colors[0]}'/>
+    <stop offset='.55' stop-color='${colors[1]}'/>
+    <stop offset='1' stop-color='${colors[2]}'/>
+  </linearGradient></defs>`;
+}
+
+function trophySvg(type, gold = false) {
+  const open = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 30'>`;
+  const close = `</svg>`;
+  const star = (cx) =>
+    `<path d='M${cx} 6.2 l.6 1.2 1.3.2 -.95.9 .2 1.3 L${cx} 9.2 l-1.15.6 .2-1.3 -.95-.9 1.3-.2 z' fill='#6b6b74' opacity='.55'/>`;
+
+  switch (type) {
+    case "liga":
+      return `${open}${gradDef(SILVER)}
+        <path d='M4 6 C1 6 1 12 6 13 M20 6 C23 6 23 12 18 13' fill='none' stroke='url(#g)' stroke-width='2' stroke-linecap='round'/>
+        <path d='M5 3 h14 v7 a7 7 0 0 1 -14 0 z' fill='url(#g)'/>
+        ${star(9)}${star(15)}
+        <rect x='10.5' y='17' width='3' height='5' fill='url(#g)'/>
+        <path d='M8 22 h8 l1.5 3 h-11 z' fill='url(#g)'/>
+        <rect x='6' y='25.5' width='12' height='2.5' rx='1' fill='#7c7c86'/>${close}`;
+    case "copa":
+      return `${open}${gradDef(SILVER)}
+        <path d='M7 2 h10 l-1 9 c-.6 4 -2 6 -4 6 s-3.4 -2 -4 -6 z' fill='url(#g)'/>
+        <path d='M6.5 3.5 C3.5 4 3.5 9 7.6 9.8 M17.5 3.5 C20.5 4 20.5 9 16.4 9.8' fill='none' stroke='url(#g)' stroke-width='1.8' stroke-linecap='round'/>
+        <rect x='10.8' y='17' width='2.4' height='4.5' fill='url(#g)'/>
+        <ellipse cx='12' cy='23' rx='4.5' ry='1.8' fill='url(#g)'/>
+        <rect x='6.5' y='24.5' width='11' height='3' rx='1.2' fill='#7c7c86'/>${close}`;
+    case "ballon":
+      return `${open}${gradDef(GOLD)}
+        <circle cx='12' cy='10' r='8.2' fill='url(#g)'/>
+        <path d='M12 5.5 l2.6 1.9 -1 3.1 h-3.2 l-1 -3.1 z' fill='#8a6114' opacity='.8'/>
+        <path d='M5 8.5 l2.4 2 M19 8.5 l-2.4 2 M8.2 16.6 l1.6-2.6 M15.8 16.6 l-1.6-2.6' stroke='#8a6114' stroke-width='1.1' opacity='.6' fill='none'/>
+        <path d='M8.5 19.5 h7 l1 4 h-9 z' fill='url(#g)'/>
+        <rect x='6' y='24' width='12' height='3.5' rx='1' fill='#5c5c66'/>${close}`;
+    case "bota":
+      return `${open}${gradDef(GOLD)}
+        <path d='M6 4 c0 6 1 10 4 12 l8 3.5 c2 .8 3 2 3 3.5 h-16 c-1.5 0 -2.5 -1 -2.5 -2.5 v-14 z' fill='url(#g)'/>
+        <path d='M7.5 9 l2.5 1.4 M8.5 12 l2.6 1.5' stroke='#8a6114' stroke-width='1.1' opacity='.65'/>
+        <rect x='2' y='24.5' width='20' height='3' rx='1.2' fill='#5c5c66'/>${close}`;
+    case "mundial":
+      return `${open}${gradDef(GOLD)}
+        <circle cx='12' cy='7.5' r='5.5' fill='url(#g)'/>
+        <path d='M12 2 a5.5 5.5 0 0 0 0 11 M6.5 7.5 h11 M8 4.2 c2.4 1.4 5.6 1.4 8 0 M8 10.8 c2.4 -1.4 5.6 -1.4 8 0' stroke='#8a6114' stroke-width='.8' fill='none' opacity='.6'/>
+        <path d='M8.5 12.5 C6 15 6.5 18 8 21 l1.5 2.5 h5 L16 21 c1.5 -3 2 -6 -.5 -8.5 c-1 1.6 -6 1.6 -7 0 z' fill='url(#g)'/>
+        <path d='M7.5 23.5 h9 l.8 2.2 h-10.6 z' fill='#3a7d44'/>
+        <rect x='5.5' y='25.7' width='13' height='2.3' rx='1' fill='#2c5e34'/>${close}`;
+    case "continental":
+      return `${open}${gradDef(gold ? GOLD : SILVER)}
+        <path d='M5.5 4 C0.5 4 0.5 13 6.5 14 M18.5 4 C23.5 4 23.5 13 17.5 14' fill='none' stroke='url(#g)' stroke-width='2.4' stroke-linecap='round'/>
+        <path d='M6 2 h12 l-.8 10 c-.5 5 -2.4 7 -5.2 7 s-4.7 -2 -5.2 -7 z' fill='url(#g)'/>
+        <path d='M8.5 4.5 c0 4 .5 8 1.5 10' stroke='#ffffff' stroke-width='.8' opacity='.5' fill='none'/>
+        <rect x='10.8' y='19' width='2.4' height='3.5' fill='url(#g)'/>
+        <path d='M8 22.5 h8 l1 3 h-10 z' fill='url(#g)'/>
+        <rect x='6.5' y='25.5' width='11' height='2.5' rx='1' fill='#7c7c86'/>${close}`;
+    default:
+      return `${open}${gradDef(SILVER)}<path d='M7 2 h10 l-1 9 c-.6 4 -2 6 -4 6 s-3.4 -2 -4 -6 z' fill='url(#g)'/>${close}`;
   }
-  ctx.save();
-  ctx.fillStyle = grad;
-  const w = h * 0.78;
-  // copa
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + w, y);
-  ctx.quadraticCurveTo(x + w, y + h * 0.62, x + w / 2, y + h * 0.62);
-  ctx.quadraticCurveTo(x, y + h * 0.62, x, y);
-  ctx.fill();
-  // tallo y base
-  ctx.fillRect(x + w / 2 - h * 0.07, y + h * 0.58, h * 0.14, h * 0.22);
-  ctx.fillRect(x + w * 0.18, y + h * 0.8, w * 0.64, h * 0.16);
-  ctx.restore();
+}
+
+// El continental europeo (Champions League) es plateado; el resto dorado
+function isGoldContinental(t) {
+  return t.t === "continental" && !/Champions League$/.test(t.n || "");
+}
+
+function trophyKey(t) {
+  return t.t === "continental" ? `continental-${isGoldContinental(t) ? "g" : "s"}` : t.t;
+}
+
+async function loadTrophyImages(trophies) {
+  const imgs = {};
+  const unique = new Map();
+  for (const t of trophies) unique.set(trophyKey(t), t);
+  await Promise.all(
+    [...unique.entries()].map(async ([key, t]) => {
+      const svg = trophySvg(t.t, isGoldContinental(t));
+      imgs[key] = await loadImg(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+    })
+  );
+  return imgs;
+}
+
+// Dibuja un trofeo manteniendo la proporción 24x30
+function drawTrophy(ctx, img, x, y, h) {
+  if (img) ctx.drawImage(img, x, y, h * 0.8, h);
 }
 
 function truncate(ctx, text, maxW) {
@@ -153,6 +221,7 @@ export async function generateCareerImage({ player, history, natData, posData, m
     })
   );
   const flagImg = natData ? await loadImg(`https://flagcdn.com/w40/${natData.c}.png`) : null;
+  const trophyImgs = await loadTrophyImages(allTrophies);
 
   /* ===== Header ===== */
   let y = PAD;
@@ -222,18 +291,21 @@ export async function generateCareerImage({ player, history, natData, posData, m
     y + 62
   );
 
-  // edad / valor
+  // edad / valor (etiqueta a la izquierda del valor, sin solaparse)
   ctx.textAlign = "right";
+  ctx.font = "900 22px 'Segoe UI', sans-serif";
+  const ageW = ctx.measureText(String(player.age)).width;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(String(player.age), W - PAD - 16, y + 28);
+  ctx.font = "800 16px 'Segoe UI', sans-serif";
+  const valTxt = fmtValue(marketVal);
+  const valW = ctx.measureText(valTxt).width;
+  ctx.fillStyle = "#fbbf24";
+  ctx.fillText(valTxt, W - PAD - 16, y + 60);
   ctx.font = "600 10px 'Segoe UI', sans-serif";
   ctx.fillStyle = "#a1a1aa";
-  ctx.fillText("EDAD", W - PAD - 58, y + 28);
-  ctx.fillText("VALOR", W - PAD - 58, y + 60);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "900 22px 'Segoe UI', sans-serif";
-  ctx.fillText(String(player.age), W - PAD - 16, y + 28);
-  ctx.fillStyle = "#fbbf24";
-  ctx.font = "800 16px 'Segoe UI', sans-serif";
-  ctx.fillText(fmtValue(marketVal), W - PAD - 16, y + 60);
+  ctx.fillText("EDAD", W - PAD - 16 - ageW - 10, y + 30);
+  ctx.fillText("VALOR", W - PAD - 16 - valW - 10, y + 61);
 
   /* ===== Totales ===== */
   y += 100;
@@ -270,7 +342,7 @@ export async function generateCareerImage({ player, history, natData, posData, m
     ctx.font = "700 12px 'Segoe UI', sans-serif";
     for (const g of grouped) {
       const label = `${g.n}${g.count > 1 ? ` ×${g.count}` : ""}`;
-      const wChip = 42 + ctx.measureText(label).width;
+      const wChip = 46 + ctx.measureText(label).width;
       if (tx + wChip > W - PAD) {
         tx = PAD;
         ty += 44;
@@ -281,11 +353,10 @@ export async function generateCareerImage({ player, history, natData, posData, m
       ctx.strokeStyle = "rgba(240,194,67,.4)";
       ctx.lineWidth = 1.2;
       ctx.stroke();
-      const goldTypes = ["ballon", "bota", "mundial"];
-      drawCup(ctx, tx + 12, ty + 8, 18, goldTypes.includes(g.t) || g.t === "continental");
+      drawTrophy(ctx, trophyImgs[trophyKey(g)], tx + 11, ty + 5, 24);
       ctx.fillStyle = "#e4e4e7";
       ctx.textAlign = "left";
-      ctx.fillText(label, tx + 34, ty + 18);
+      ctx.fillText(label, tx + 36, ty + 18);
       tx += wChip + 10;
     }
     y = ty + 44 + 10;
@@ -341,11 +412,11 @@ export async function generateCareerImage({ player, history, natData, posData, m
     const name = truncate(ctx, row.team, 240);
     ctx.fillText(name, PAD + 84, cy + 1);
 
-    // trofeos de la temporada
+    // trofeos de la temporada (mismos íconos que en la app)
     let cupX = PAD + 84 + ctx.measureText(name).width + 8;
     for (const t of row.trophies || []) {
-      drawCup(ctx, cupX, cy - 8, 15, ["ballon", "bota", "mundial", "continental"].includes(t.t));
-      cupX += 15;
+      drawTrophy(ctx, trophyImgs[trophyKey(t)], cupX, cy - 9, 18);
+      cupX += 17;
     }
 
     // OVR

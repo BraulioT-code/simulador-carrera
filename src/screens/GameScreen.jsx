@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PlayerHeader, StatsBar, TrophyCabinet, Timeline, Flag, ClubLogo } from "../components";
 import { ALL_COUNTRIES, POS_MAP, PHASES, teamTint } from "../data";
 import { marketValue } from "../utils/helpers";
@@ -109,7 +109,11 @@ export default function GameScreen({
   const natData = ALL_COUNTRIES.find((c) => c.n === player.nationality);
   const posData = POS_MAP.find((p) => p.id === player.position);
   const isGK = player.position === "GK";
-  const mv = marketValue(player.overall, player.age);
+  // Estable por edad/OVR: si no, cambia en cada render y la imagen no coincide con la pantalla
+  const mv = useMemo(
+    () => marketValue(player.overall, player.age),
+    [player.overall, player.age]
+  );
 
   const tPJ = history.reduce((s, h) => s + h.pj, 0);
   const tPJMax = history.reduce((s, h) => s + (h.pjMax || 0), 0);
