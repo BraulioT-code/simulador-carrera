@@ -13,7 +13,7 @@ export function generateStats(position, ovr, age) {
   if (position === "GK") {
     const gc = Math.max(0, randInt(Math.floor(pj * 0.4), Math.floor(pj * 1.8)) - Math.floor(factor * pj * 0.3));
     const vi = randInt(0, Math.floor(pj * 0.45 * factor));
-    return { pj, gls: 0, ast: 0, gc, vi };
+    return { pj, pjMax: maxPJ, gls: 0, ast: 0, gc, vi };
   }
 
   const isAttacker = ["ST", "LW", "RW", "CAM"].includes(position);
@@ -21,6 +21,7 @@ export function generateStats(position, ovr, age) {
 
   return {
     pj,
+    pjMax: maxPJ,
     gls: isAttacker
       ? randInt(0, Math.floor(pj * 0.55 * factor))
       : isMidfielder
@@ -162,7 +163,7 @@ export function evaluateSeason(player, stats) {
   const factor = player.overall / 80;
   const age = player.age;
 
-  const maxPJ = age <= 17 ? 45 : age <= 19 ? 70 : age >= 34 ? 65 : 85;
+  const maxPJ = stats.pjMax ?? (age <= 17 ? 45 : age <= 19 ? 70 : age >= 34 ? 65 : 85);
   const participation = Math.min(1, stats.pj / (maxPJ * 0.75));
 
   let ratio;
@@ -192,15 +193,25 @@ export function evaluateSeason(player, stats) {
 }
 
 /**
- * Calcula el cambio de OVR según la edad del jugador.
+ * Calcula el cambio de OVR según la edad y el rendimiento de la temporada.
+ * Una gran temporada (rating >= 8) acelera el crecimiento; una muy mala lo frena.
  */
-export function calculateOvrDelta(age) {
-  if (age < 20) return randInt(2, 6);
-  if (age < 24) return randInt(1, 4);
-  if (age < 28) return randInt(0, 2);
-  if (age < 31) return randInt(-1, 1);
-  if (age < 34) return randInt(-3, 0);
-  return randInt(-5, -1);
+export function calculateOvrDelta(age, rating = null) {
+  let delta;
+  if (age < 20) delta = randInt(3, 7);
+  else if (age < 24) delta = randInt(2, 5);
+  else if (age < 28) delta = randInt(0, 3);
+  else if (age < 31) delta = randInt(-1, 1);
+  else if (age < 34) delta = randInt(-3, 0);
+  else delta = randInt(-5, -1);
+
+  if (rating != null) {
+    if (rating >= 8) delta += 2;
+    else if (rating >= 6.5) delta += 1;
+    else if (rating < 3) delta -= 1;
+  }
+
+  return delta;
 }
 
 /**

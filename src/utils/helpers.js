@@ -4,6 +4,17 @@ export const randInt = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 /** Elemento aleatorio de un array */
 export const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+/** Elemento aleatorio ponderado: cada item puede traer un peso `w` (default 1) */
+export const pickWeighted = (arr) => {
+  const total = arr.reduce((s, e) => s + (e.w ?? 1), 0);
+  let r = Math.random() * total;
+  for (const e of arr) {
+    r -= e.w ?? 1;
+    if (r <= 0) return e;
+  }
+  return arr[arr.length - 1];
+};
+
 /** Clamp: limita un valor entre lo y hi */
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 

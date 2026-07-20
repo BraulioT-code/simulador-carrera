@@ -12,10 +12,14 @@ function Stat({ label, value, icon }) {
   );
 }
 
-export default function StatsBar({ pj, gls, ast, gc, vi, isGK }) {
+export default function StatsBar({ pj, pjMax, gls, ast, gc, vi, isGK }) {
   return (
     <div className="mb-2 flex justify-around rounded-lg border-y border-zinc-800/60 py-2">
-      <Stat label="PJ" value={pj} icon={<IconMatches size={13} />} />
+      <Stat
+        label="PJ"
+        value={pjMax ? `${pj}/${pjMax}` : pj}
+        icon={<IconMatches size={13} />}
+      />
       {isGK ? (
         <>
           <Stat label="GC" value={gc} icon={<IconGoalConceded size={13} />} />

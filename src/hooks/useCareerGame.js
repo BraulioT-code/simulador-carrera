@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { LEAGUES, EVENTS, PHASES } from "../data";
-import { randInt, clamp, pick } from "../utils/helpers";
+import { randInt, clamp, pickWeighted } from "../utils/helpers";
 import {
   generateStats,
   getOffers,
@@ -90,6 +90,7 @@ export default function useCareerGame() {
         league: player.league,
         ovr: player.overall,
         pj: stats.pj,
+        pjMax: stats.pjMax,
         gls: stats.gls,
         ast: stats.ast,
         gc: stats.gc,
@@ -98,7 +99,8 @@ export default function useCareerGame() {
       },
     ];
 
-    const delta = calculateOvrDelta(player.age);
+    // El crecimiento de OVR depende de la edad y del rendimiento de la temporada
+    const delta = calculateOvrDelta(player.age, season.rating);
     const newOvr = clamp(player.overall + delta, 40, 99);
     const newAge = player.age + 2;
     
@@ -123,6 +125,36 @@ export default function useCareerGame() {
 
     // Determinar siguiente fase
     const roll = Math.random();
+
+    // Penal decisivo: si ya jugaste con tu selección, puede tocarte definir una final
+    const CUPS = {
+      sa: "la Copa América",
+      eu: "la Eurocopa",
+      af: "la Copa Africana",
+      as: "la Copa Asiática",
+      na: "la Copa Oro",
+    };
+    const natRegion = Object.values(LEAGUES).find((l) => l.c === player.nationality)?.r;
+
+    if ((player.intCaps || 0) > 0 && player.age >= 20 && Math.random() < 0.12) {
+      update({
+        player: updatedPlayer,
+        history: newHistory,
+        canStay: season.good,
+        message: "",
+        event: {
+          type: "penal",
+          title: "Penal decisivo",
+          desc: `Te toca definir la final de ${CUPS[natRegion] || "la Copa del Mundo"}.`,
+          choices: [
+            { label: "Izquierda", eff: "penalty" },
+            { label: "Derecha", eff: "penalty" },
+          ],
+        },
+        phase: PHASES.EVENT,
+      });
+      return;
+    }
 
     if (
       player.age >= 30 &&
@@ -156,13 +188,13 @@ export default function useCareerGame() {
         },
         phase: PHASES.EVENT,
       });
-    } else if (roll < 0.4) {
+    } else if (roll < 0.55) {
       update({
         player: updatedPlayer,
         history: newHistory,
         canStay: season.good,
         message: "",
-        event: { ...pick(EVENTS) },
+        event: { ...pickWeighted(EVENTS) },
         phase: PHASES.EVENT,
       });
     } else {
@@ -192,7 +224,22 @@ export default function useCareerGame() {
         return;
       }
 
-      if (eff === "gamble") {
+      if (eff === "penalty") {
+        if (Math.random() < 0.65) {
+          changes = {
+            reputation: clamp(player.reputation + 15, 0, 100),
+            morale: clamp(player.morale + 10, 0, 100),
+            overall: clamp(player.overall + 1, 40, 99),
+          };
+          msg = "¡GOL! Definiste la final y sos leyenda nacional";
+        } else {
+          changes = {
+            reputation: clamp(player.reputation - 8, 0, 100),
+            morale: clamp(player.morale - 10, 0, 100),
+          };
+          msg = "El arquero adivinó… fallaste el penal decisivo";
+        }
+      } else if (eff === "gamble") {
         if (Math.random() < 0.7) {
           changes = { overall: clamp(player.overall + 3, 40, 99) };
           msg = "+3 OVR ¡Éxito!";

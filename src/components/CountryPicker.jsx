@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { ALL_COUNTRIES } from "../data";
 import Flag from "./Flag";
 
-export default function CountryPicker({ value, onChange }) {
+export default function CountryPicker({ value, onChange, listClass = "max-h-[420px]" }) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -37,7 +37,9 @@ export default function CountryPicker({ value, onChange }) {
       </div>
 
       {/* Lista visible en 2 columnas */}
-      <div className="dark-scroll grid max-h-[420px] grid-cols-2 content-start gap-x-2 overflow-y-auto rounded-xl bg-zinc-900/80 p-2">
+      <div
+        className={`dark-scroll grid ${listClass} grid-cols-2 content-start gap-x-2 overflow-y-auto rounded-xl bg-zinc-900/80 p-2`}
+      >
         {filtered.map((c) => {
           const selected = value === c.n;
           return (

@@ -39,7 +39,8 @@ const TEAM_LOGO_IDS = {
   Celtic: 247, Rangers: 257, Galatasaray: 645, "Fenerbahçe": 611,
 };
 
-// Nombres de búsqueda para TheSportsDB cuando el nombre local es abreviado
+// Nombres de búsqueda para TheSportsDB cuando el nombre local es abreviado.
+// Puede ser un string o un array de candidatos (se prueban en orden).
 export const LOGO_SEARCH_NAMES = {
   "Man. City": "Manchester City", "Man. United": "Manchester United",
   "B. M'gladbach": "Borussia Monchengladbach", "E. Frankfurt": "Eintracht Frankfurt",
@@ -53,7 +54,14 @@ export const LOGO_SEARCH_NAMES = {
   Racing: "Racing Club", Talleres: "Talleres Cordoba", Estudiantes: "Estudiantes La Plata",
   "Atl. Nacional": "Atletico Nacional", "Ind. Medellín": "Independiente Medellin",
   "Ind. Santa Fe": "Independiente Santa Fe", "Dep. Cali": "Deportivo Cali",
-  Junior: "Junior FC", "América de Cali": "America de Cali",
+  Junior: ["Atletico Junior", "Junior FC", "Junior Barranquilla"],
+  "América de Cali": "America de Cali",
+  "Atl. Bucaramanga": "Atletico Bucaramanga", "Dep. Tolima": "Deportes Tolima",
+  "Dep. Pereira": "Deportivo Pereira", "Dep. Pasto": "Deportivo Pasto",
+  "Águilas Doradas": ["Aguilas Doradas", "Rionegro Aguilas"],
+  "Fortaleza CEIF": ["Fortaleza CEIF", "Fortaleza FC"],
+  "Colo-Colo": "Colo Colo", "Cerro Porteño": "Cerro Porteno",
+  "Atlético Mineiro": "Atletico Mineiro",
   "América": "Club America", "UNAM Pumas": "Pumas UNAM", "León": "Club Leon",
   "Ath. Paranaense": "Athletico Paranaense", "RB Bragantino": "Bragantino",
   Nacional: "Nacional Montevideo", "Peñarol": "Penarol", Defensor: "Defensor Sporting",

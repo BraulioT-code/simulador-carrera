@@ -21,12 +21,15 @@ pnpm preview    # sirve el build de producción
 
 ## Cómo se juega
 
-1. **Definí tu identidad**: apellido, dorsal, pierna hábil, nacionalidad (buscador con banderas) y posición sobre la cancha interactiva.
+1. **Definí tu identidad**: apellido, dorsal, pierna hábil, nacionalidad (buscador con banderas) y posición sobre la cancha interactiva. En mobile es un asistente de 3 pasos (Nacionalidad → Identidad → Posición) con barra de progreso; la camiseta de la vista previa usa los colores de la selección del país elegido (`src/data/kits.js`).
 2. **Oferta de cantera**: tres clubes **de las ligas de tu país** te ofrecen debutar. Si tu país no tiene liga en el juego, recibís ofertas de ligas modestas del resto del mundo.
 3. **Simulá temporadas** (bloques de 2 años). Cada temporada genera partidos, goles y asistencias (o goles en contra y vallas invictas si sos arquero) según tu posición, OVR y edad.
 4. Entre temporadas pueden aparecer **eventos** (lesiones, selección nacional, escándalos, renovaciones…) y **ofertas de transferencia**.
-5. A los 30+ tu primer club puede ofrecerte un **regreso triunfal**.
-6. El retiro llega después de los 38, o antes si el nivel cae demasiado.
+5. Si ya jugaste con tu selección, puede tocarte un **penal decisivo** en la final del torneo de tu confederación (Copa América, Eurocopa, Copa Oro…): elegís palo y te jugás la gloria (65% de convertir: +reputación, +moral y +1 OVR; si el arquero adivina, lo pagás).
+6. A los 30+ tu primer club puede ofrecerte un **regreso triunfal**.
+7. El retiro llega después de los 38, o antes si el nivel cae demasiado.
+
+En mobile, la pantalla de juego cabe completa sin scroll: barra superior con la marca, ficha del jugador, línea de tiempo compacta y panel de acciones como hoja inferior.
 
 ---
 
@@ -34,16 +37,20 @@ pnpm preview    # sirve el build de producción
 
 ### Progresión de OVR
 
-El OVR inicial es aleatorio (45–55) y evoluciona por temporada según la edad:
+El OVR inicial es aleatorio (45–55) y evoluciona por temporada según la edad, **más un bonus por rendimiento**: una gran temporada (nota ≥ 8) suma +2 extra, una buena (≥ 6.5) suma +1, y una muy mala (< 3) resta 1.
 
-| Edad  | Cambio de OVR |
-|-------|---------------|
-| <20   | +2 a +6       |
-| 20–23 | +1 a +4       |
-| 24–27 | 0 a +2        |
-| 28–30 | −1 a +1       |
-| 31–33 | −3 a 0        |
-| 34+   | −5 a −1       |
+| Edad  | Cambio base de OVR |
+|-------|--------------------|
+| <20   | +3 a +7            |
+| 20–23 | +2 a +5            |
+| 24–27 | 0 a +3             |
+| 28–30 | −1 a +1            |
+| 31–33 | −3 a 0             |
+| 34+   | −5 a −1            |
+
+Además, el 55% de los intervalos entre temporadas trae un **evento** (15 posibles), y varios de ellos permiten ganar o perder OVR directamente: entrenador personal (+2), pretemporada en altura (+2), videoanálisis (+1), rechazar publicidad para entrenar (+2), apuestas de entrenamiento/nutrición (+3/−2), vida nocturna (−2), lesión de ligamentos (−3/−1), crisis de confianza, etc. Con buen rendimiento y buenas decisiones, llegar a OVR 85+ es totalmente alcanzable.
+
+Los partidos jugados se muestran como `jugados/posibles` (ej. `72/85`), tanto por temporada como en el total de carrera.
 
 ### Evaluación de rendimiento (renovación)
 
@@ -77,7 +84,8 @@ Se calcula por rango de OVR con multiplicadores por edad: ×1.3 hasta los 21, ×
 ## Datos e imágenes
 
 - **Banderas**: [flagcdn.com](https://flagcdn.com) por código ISO (`src/data/countries.js`). Se usan imágenes porque los emojis de bandera no se renderizan en Windows.
-- **Escudos de clubes**: ~150 clubes con ID directo del CDN de [api-sports](https://media.api-sports.io); el resto se resuelve por nombre en [TheSportsDB](https://www.thesportsdb.com) con caché en `localStorage`. Si un escudo no carga, se muestra un monograma con los colores del club (`src/components/ClubLogo.jsx`).
+- **Escudos de clubes**: ~150 clubes con ID directo del CDN de [api-sports](https://media.api-sports.io); el resto se resuelve por nombre en [TheSportsDB](https://www.thesportsdb.com) probando varios candidatos (con y sin tildes, nombres alternativos) y con caché en `localStorage` de los aciertos. Si un escudo no carga, se muestra un monograma con los colores del club (`src/components/ClubLogo.jsx`).
+- **Identidad**: `public/logo.svg` (logo completo), `public/favicon.svg` (ícono de pestaña) y `public/og-image.png` (imagen 1200×630 para compartir en redes, con metadatos Open Graph y Twitter Card en `index.html`).
 - **Colores de club**: `src/data/teamColors.js` define el color primario de cada equipo; se usa para sombrear la tarjeta del jugador, las filas de la línea de tiempo y las ofertas.
 - **Trofeos e íconos**: SVG propios (`src/components/Trophy.jsx`, `src/components/Icons.jsx`).
 
