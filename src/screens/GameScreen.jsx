@@ -1,8 +1,18 @@
 import { useMemo, useRef, useState } from "react";
-import { PlayerHeader, StatsBar, TrophyCabinet, Timeline, Flag, ClubLogo } from "../components";
+import {
+  PlayerHeader,
+  StatsBar,
+  TrophyCabinet,
+  Timeline,
+  Flag,
+  ClubLogo,
+  TrophyCelebration,
+  HallOfFame,
+} from "../components";
 import { ALL_COUNTRIES, POS_MAP, PHASES, teamTint } from "../data";
 import { marketValue } from "../utils/helpers";
 import { generateCareerImage } from "../utils/careerImage";
+import { legendScore, legendTitle, legendColor } from "../utils/legend";
 
 function FxChip({ t, g, active = false, dim = false, landed = false }) {
   return (
@@ -134,12 +144,15 @@ export default function GameScreen({
   offers,
   event,
   message,
+  headline,
   canStay,
+  celebration,
   onPickClub,
   onSimulate,
   onHandleChoice,
   onStay,
   onReset,
+  onDismissCelebration,
 }) {
   const natData = ALL_COUNTRIES.find((c) => c.n === player.nationality);
   const posData = POS_MAP.find((p) => p.id === player.position);
@@ -160,6 +173,12 @@ export default function GameScreen({
 
   const [shareMsg, setShareMsg] = useState("");
   const [sharing, setSharing] = useState(false);
+  const [showHof, setShowHof] = useState(false);
+
+  const score = useMemo(
+    () => (phase === PHASES.OVER ? legendScore({ player, history }) : 0),
+    [phase, player, history]
+  );
 
   // Ruleta de chips para elecciones con azar (eff: "gamble")
   const [spin, setSpin] = useState(null); // { idx, chip, landed }
@@ -209,6 +228,7 @@ export default function GameScreen({
         natData,
         posData,
         marketVal: mv,
+        legend: { score, title: legendTitle(score), color: legendColor(score) },
       });
       const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
       if (copy && navigator.clipboard?.write && window.ClipboardItem) {
@@ -235,6 +255,9 @@ export default function GameScreen({
 
   return (
     <div className="flex min-h-[100dvh] flex-col">
+      <TrophyCelebration trophy={celebration} onDone={onDismissCelebration} />
+      {showHof && <HallOfFame onClose={() => setShowHof(false)} />}
+
       <div className="mx-auto flex w-full max-w-[1080px] flex-1 flex-col p-3 lg:grid lg:grid-cols-[46%_1fr] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-4 lg:p-4">
         {/* Bloque A: jugador */}
         <div className="shrink-0 lg:col-start-1 lg:row-start-1">
@@ -269,6 +292,17 @@ export default function GameScreen({
 
         {/* Bloque C: acciones (hoja inferior en mobile) */}
         <div className="-mx-3 mt-2 shrink-0 rounded-t-2xl bg-[#131316] px-4 pb-4 pt-3 ring-1 ring-zinc-800/70 lg:col-start-1 lg:row-start-2 lg:m-0 lg:rounded-none lg:bg-transparent lg:p-0 lg:ring-0">
+          {headline && phase !== PHASES.OVER && (
+            <div className="mb-2 flex items-start gap-2 rounded-lg bg-zinc-800/40 px-3 py-2">
+              <span className="mt-[1px] shrink-0 rounded bg-zinc-700 px-1.5 py-0.5 text-[8px] font-black tracking-widest text-zinc-300">
+                PRENSA
+              </span>
+              <span className="text-[12px] font-semibold italic leading-snug text-zinc-300">
+                “{headline}”
+              </span>
+            </div>
+          )}
+
           {message && (
             <div className="mb-2 rounded-lg border border-emerald-900/60 bg-emerald-950/50 px-3 py-2 text-[12px] font-semibold text-emerald-400">
               {message}
@@ -455,9 +489,42 @@ export default function GameScreen({
               }}
             >
               <BootsIllustration />
-              <div className="mb-4 mt-3 text-lg font-extrabold lg:text-xl">
+              <div className="mb-3 mt-3 text-lg font-extrabold lg:text-xl">
                 Tu carrera llegó a su fin
               </div>
+
+              {/* Puntaje de leyenda */}
+              <div className="mx-auto mb-4 flex max-w-[280px] flex-col items-center rounded-xl bg-black/40 px-4 py-3">
+                <div className="text-[9px] font-black tracking-[0.2em] text-zinc-500">
+                  PUNTAJE DE LEYENDA
+                </div>
+                <div
+                  className="text-4xl font-black leading-tight"
+                  style={{ color: legendColor(score) }}
+                >
+                  {score}
+                  <span className="text-lg text-zinc-600">/100</span>
+                </div>
+                <div
+                  className="text-[13px] font-extrabold"
+                  style={{ color: legendColor(score) }}
+                >
+                  {legendTitle(score)}
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000"
+                    style={{ width: `${score}%`, background: legendColor(score) }}
+                  />
+                </div>
+                {player.earnings > 0 && (
+                  <div className="mt-2 text-[11px] font-semibold text-zinc-400">
+                    Ganancias de carrera:{" "}
+                    <span className="font-black text-amber-400">€{player.earnings}M</span>
+                  </div>
+                )}
+              </div>
+
               <div className="flex flex-wrap justify-center gap-3">
                 <button
                   type="button"
@@ -474,6 +541,13 @@ export default function GameScreen({
                   className="rounded-full border border-zinc-500 px-6 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-zinc-800 disabled:opacity-60"
                 >
                   Descargar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowHof(true)}
+                  className="rounded-full border border-zinc-500 px-6 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-zinc-800"
+                >
+                  Salón de la Fama
                 </button>
                 <button
                   type="button"

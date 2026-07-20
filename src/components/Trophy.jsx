@@ -155,6 +155,39 @@ function ContinentalSvg({ size, gold = false }) {
   );
 }
 
+function MvpSvg({ size }) {
+  // Medalla con cinta
+  return (
+    <svg width={size} height={size * 1.25} viewBox="0 0 24 30">
+      <Defs id="tg-gold5" colors={GOLD} />
+      <path d="M7 1 l4 9 -3 1.5 -4 -8.5 z" fill="#b91c1c" />
+      <path d="M17 1 l-4 9 3 1.5 4 -8.5 z" fill="#dc2626" />
+      <circle cx="12" cy="19" r="8.5" fill="url(#tg-gold5)" />
+      <circle cx="12" cy="19" r="6" fill="none" stroke="#8a6114" strokeWidth=".9" opacity=".55" />
+      <path
+        d="M12 14.5 l1.5 3 3.3.5 -2.4 2.3 .6 3.3 -3 -1.6 -3 1.6 .6 -3.3 -2.4 -2.3 3.3 -.5 z"
+        fill="#8a6114"
+        opacity=".75"
+      />
+    </svg>
+  );
+}
+
+function EotySvg({ size }) {
+  // Escudo con estrella
+  return (
+    <svg width={size} height={size * 1.25} viewBox="0 0 24 30">
+      <Defs id="tg-silver4" colors={SILVER} />
+      <path d="M12 2 l9 3 v9 c0 6 -4 9.5 -9 12 c-5 -2.5 -9 -6 -9 -12 v-9 z" fill="url(#tg-silver4)" />
+      <path
+        d="M12 9 l1.7 3.5 3.8.5 -2.75 2.7 .65 3.8 -3.4 -1.8 -3.4 1.8 .65 -3.8 -2.75 -2.7 3.8 -.5 z"
+        fill="#52525b"
+        opacity=".7"
+      />
+    </svg>
+  );
+}
+
 const TROPHY_SVGS = {
   liga: LigaSvg,
   copa: CopaSvg,
@@ -162,6 +195,8 @@ const TROPHY_SVGS = {
   bota: BotaSvg,
   mundial: MundialSvg,
   continental: ContinentalSvg,
+  mvp: MvpSvg,
+  eoty: EotySvg,
 };
 
 /**

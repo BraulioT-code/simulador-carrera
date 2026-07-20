@@ -28,7 +28,10 @@ pnpm preview    # sirve el build de producción
 5. Si ya jugaste con tu selección, puede tocarte un **penal decisivo** en la final del torneo de tu confederación (Copa América, Eurocopa, Copa Oro…): elegís palo y te jugás la gloria (65% de convertir: +reputación, +moral y +1 OVR; si el arquero adivina, lo pagás).
 6. A los 30+ tu primer club puede ofrecerte un **regreso triunfal**.
 7. El retiro llega después de los 38, o antes si el nivel cae demasiado.
-8. Al retirarte podés **copiar o descargar una imagen** con el resumen completo de tu carrera (ficha, totales, vitrina y las 12 temporadas) para compartirla donde quieras.
+8. Cada 4 años de carrera (18, 22, 26, 30, 34, 38) se juega el **Mundial** si ya fuiste convocado alguna vez a tu selección.
+9. Al retirarte obtenés tu **puntaje de leyenda**, la carrera se guarda en el **Salón de la Fama** y podés **copiar o descargar una imagen** con el resumen completo.
+
+La partida se **guarda automáticamente**: si cerrás el navegador, al volver seguís donde estabas.
 
 En mobile la pantalla de juego arranca sin scroll (ficha compacta, línea de tiempo y panel de acciones como hoja inferior) y la página crece de forma natural a medida que la carrera se llena.
 
@@ -78,7 +81,33 @@ Cada trofeo se guarda con su **nombre específico** y se dibuja como SVG (sin em
 | Continental | "Champions League" (Europa), "Copa Libertadores" (Sudamérica), "Concachampions", etc. según la región de la liga | Pelear el título en primera división; probabilidad según OVR y prestigio |
 | Balón de Oro | "Balón de Oro" | OVR ≥ 85, 8% |
 | Bota de Oro | "Bota de Oro" | OVR ≥ 88, 12% |
-| Mundial | "Copa del Mundo" | +20 partidos con la selección, 4% |
+| Mundial | "Copa del Mundo" | Ganar el Mundial (ver abajo) |
+| MVP / Guante de Oro | "MVP de la Premier League" | Nota ≥ 8.5 y nivel acorde a la liga |
+| Equipo del Año | "Equipo del Año · La Liga" | Nota ≥ 7.5 |
+| Goleador | "Goleador de la Serie A" | 25+ goles en la temporada |
+
+Al ganar cualquier título aparece una **celebración a pantalla completa**: el trofeo en grande con fuegos artificiales animados durante 2 segundos (`src/components/TrophyCelebration.jsx`).
+
+### Mundial y selección
+
+Aceptar la convocatoria a la selección desbloquea el circuito internacional:
+
+- **Mundial** cada 4 años de carrera (18, 22, 26, 30, 34, 38). El resultado depende de tu OVR y reputación: campeón directo, final (que se define por penal), semis, cuartos o fase de grupos.
+- **Penal decisivo** (25% por temporada) por la copa de tu confederación — Copa América, Eurocopa, Copa Oro, Copa Asiática o Copa Africana. Si convertís, el trofeo se suma a tu vitrina y a la temporada correspondiente.
+
+### Puntaje de leyenda
+
+Al retirarte se calcula una nota de 0 a 100 (`src/utils/legend.js`) que pondera trofeos (42 pts máx., con la Copa del Mundo y el Balón de Oro pesando más), OVR pico (24), producción por partido (16), longevidad (10) y partidos internacionales (8). El puntaje da un título: *Leyenda mundial*, *Ídolo global*, *Estrella consagrada*, *Gran profesional*, *Sólido de primera*, *Ídolo de barrio* o *Carrera humilde*. Aparece en pantalla y en la imagen compartible.
+
+### Finanzas, prensa y rivalidades
+
+- **Salario** por temporada según OVR, edad y prestigio de la liga; las ganancias se acumulan y se muestran al retirarte.
+- **Titular de prensa** generado cada temporada a partir de tus números (`src/utils/headlines.js`): goleador del torneo, muralla bajo los tres palos, pérdida de terreno en el club, etc.
+- **Clásicos**: fichar por el rival directo de tu club anterior (Boca↔River, Millonarios↔Santa Fe, United↔City y ~55 pares más) cuesta moral y reputación, con recibimiento hostil.
+
+### Guardado y Salón de la Fama
+
+La partida en curso se guarda en `localStorage` tras cada acción y se restaura al abrir la app. Al retirarte, la carrera se archiva en el Salón de la Fama (hasta 20 carreras) con puntaje, título, OVR pico, totales, ganancias y trofeos; se accede desde la pantalla inicial o desde el final de carrera.
 
 ### Valor de mercado
 
@@ -94,7 +123,11 @@ Al finalizar la carrera, `src/utils/careerImage.js` dibuja en un canvas (a 2× d
 
 - **Banderas**: [flagcdn.com](https://flagcdn.com) por código ISO (`src/data/countries.js`). Se usan imágenes porque los emojis de bandera no se renderizan en Windows.
 - **Escudos de clubes**: ~150 clubes con ID directo del CDN de [api-sports](https://media.api-sports.io); el resto se resuelve por nombre en [TheSportsDB](https://www.thesportsdb.com) probando varios candidatos (con y sin tildes, nombres alternativos) y con caché en `localStorage` de los aciertos. Si un escudo no carga, se muestra un monograma con los colores del club (`src/components/ClubLogo.jsx`).
-- **Identidad**: `public/logo.svg` (logo completo), `public/favicon.svg` (ícono de pestaña) y `public/og-image.png` (imagen 1200×630 para compartir en redes, con metadatos Open Graph y Twitter Card en `index.html`).
+- **Identidad**: `public/logo.svg` (logo completo), `public/favicon.svg` (ícono de pestaña), `public/icon-512.png` (ícono de app) y `public/og-image.png` (imagen 1200×630 para compartir en redes, con metadatos Open Graph y Twitter Card en `index.html`).
+
+### PWA
+
+La app es instalable en el celular y funciona offline: `public/manifest.webmanifest` define nombre, colores e iconos, y `public/sw.js` cachea el shell (red primero para navegación, cache primero para assets). El service worker se registra solo en producción, así que en `pnpm dev` no interfiere con la recarga en caliente.
 - **Colores de club**: `src/data/teamColors.js` define el color primario de cada equipo; se usa para sombrear la tarjeta del jugador, las filas de la línea de tiempo y las ofertas.
 - **Trofeos e íconos**: SVG propios (`src/components/Trophy.jsx`, `src/components/Icons.jsx`).
 
@@ -116,6 +149,8 @@ src/
 │   ├── SetupScreen.jsx       # Creación del jugador (identidad, país, posición)
 │   └── GameScreen.jsx        # Carrera: panel del jugador + línea de tiempo
 ├── components/
+│   ├── TrophyCelebration.jsx # Celebración con fuegos artificiales (canvas)
+│   ├── HallOfFame.jsx        # Listado de carreras terminadas
 │   ├── JerseyPreview.jsx     # Camiseta SVG con apellido y dorsal en vivo
 │   ├── CountryPicker.jsx     # Buscador de país con lista de 2 columnas
 │   ├── PitchSelector.jsx     # Cancha con las 12 posiciones
@@ -137,10 +172,14 @@ src/
 │   ├── teamLogos.js          # IDs de escudos + nombres de búsqueda
 │   ├── positions.js          # Coordenadas de posiciones en la cancha
 │   ├── kits.js               # Colores de camiseta por selección nacional
+│   ├── rivals.js             # Pares de clásicos rivales
 │   └── events.js             # Eventos de carrera (con pesos de sorteo)
 └── utils/
-    ├── gameLogic.js          # Stats, ofertas, trofeos, evaluación, retiro
+    ├── gameLogic.js          # Stats, ofertas, trofeos, premios, Mundial, salarios
     ├── careerImage.js        # Imagen resumen de la carrera (canvas exportable)
+    ├── careerStore.js        # Guardado en localStorage + Salón de la Fama
+    ├── legend.js             # Puntaje y título de leyenda
+    ├── headlines.js          # Titulares de prensa por temporada
     └── helpers.js            # randInt, clamp, pickWeighted, colores de OVR, valor de mercado
 ```
 

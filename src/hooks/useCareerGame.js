@@ -1,15 +1,23 @@
-import { useState, useCallback } from "react";
-import { LEAGUES, EVENTS, PHASES } from "../data";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { LEAGUES, EVENTS, PHASES, areRivals } from "../data";
 import { randInt, clamp, pickWeighted } from "../utils/helpers";
 import {
   generateStats,
   getOffers,
   getDebutOffers,
   generateTrophies,
+  generateAwards,
   calculateOvrDelta,
   shouldRetire,
   evaluateSeason,
+  isWorldCupYear,
+  resolveWorldCup,
+  nationalCupName,
+  estimateSalary,
 } from "../utils/gameLogic";
+import { generateHeadline } from "../utils/headlines";
+import { legendScore, legendTitle } from "../utils/legend";
+import { saveGame, loadGame, clearSave, addToHallOfFame } from "../utils/careerStore";
 
 const initialState = {
   player: null,
@@ -17,17 +25,61 @@ const initialState = {
   offers: [],
   event: null,
   message: "",
+  headline: "",
   firstClub: "",
   canStay: true,
+  celebration: null,
   phase: PHASES.SETUP,
 };
 
-export default function useCareerGame() {
-  const [state, setState] = useState(initialState);
+// Qué trofeo se celebra primero cuando se ganan varios
+const CELEBRATION_ORDER = ["mundial", "continental", "ballon", "liga", "copa", "bota", "mvp", "eoty"];
 
-  const { player, history, offers, event, message, firstClub, canStay, phase } = state;
+function topTrophy(list) {
+  if (!list?.length) return null;
+  return [...list].sort(
+    (a, b) => CELEBRATION_ORDER.indexOf(a.t) - CELEBRATION_ORDER.indexOf(b.t)
+  )[0];
+}
+
+export default function useCareerGame() {
+  const [state, setState] = useState(() => loadGame() || initialState);
+  const hydrated = useRef(false);
+
+  const {
+    player,
+    history,
+    offers,
+    event,
+    message,
+    headline,
+    firstClub,
+    canStay,
+    celebration,
+    phase,
+  } = state;
+
+  // Guardado automático de la partida en curso
+  useEffect(() => {
+    if (!hydrated.current) {
+      hydrated.current = true;
+      return;
+    }
+    if (state.phase === PHASES.SETUP) clearSave();
+    else saveGame(state);
+  }, [state]);
 
   const update = (changes) => setState((prev) => ({ ...prev, ...changes }));
+
+  /** Suma un trofeo a la última temporada jugada y lo devuelve para celebrar */
+  const awardTrophy = (hist, trophy) => {
+    if (!hist.length) return hist;
+    const copy = [...hist];
+    const last = { ...copy[copy.length - 1] };
+    last.trophies = [...(last.trophies || []), trophy];
+    copy[copy.length - 1] = last;
+    return copy;
+  };
 
   const startGame = useCallback((setup) => {
     const newPlayer = {
@@ -44,29 +96,37 @@ export default function useCareerGame() {
       team: "Libre",
       league: "-",
       contractYears: 0,
+      salary: 0,
+      earnings: 0,
     };
 
-    update({
+    setState({
+      ...initialState,
       player: newPlayer,
       offers: getDebutOffers(setup.country, 3),
-      firstClub: "",
       phase: PHASES.CANTERA,
     });
   }, []);
 
   const pickClub = useCallback(
     (offer) => {
+      const rival = areRivals(player.team, offer.team);
       const updatedPlayer = {
         ...player,
         team: offer.team,
         league: offer.league,
         contractYears: randInt(2, 4),
+        morale: clamp(player.morale + (rival ? -15 : 0), 0, 100),
+        reputation: clamp(player.reputation + (rival ? -5 : 0), 0, 100),
+        salary: estimateSalary({ ...player, league: offer.league }),
       };
 
       update({
         player: updatedPlayer,
         firstClub: firstClub || offer.team,
-        message: `¡Fichaste por ${offer.team}!`,
+        message: rival
+          ? `¡Fichaste por ${offer.team}, el clásico rival! La hinchada de ${player.team} no te lo perdona`
+          : `¡Fichaste por ${offer.team}!`,
         offers: [],
         phase: PHASES.PLAYING,
       });
@@ -82,9 +142,19 @@ export default function useCareerGame() {
     if (player.pjPenalty) {
       stats.pj = Math.max(5, Math.round(stats.pj * player.pjPenalty));
     }
-    const trophies = generateTrophies(player);
-    // Rendimiento real de la temporada: decide si el club quiere renovar
     const season = evaluateSeason(player, stats);
+    const trophies = [
+      ...generateTrophies(player),
+      ...generateAwards(player, stats, season.rating),
+    ];
+
+    const seasonHeadline = generateHeadline({
+      player,
+      stats,
+      trophies,
+      rating: season.rating,
+      league: player.league,
+    });
 
     const newHistory = [
       ...history,
@@ -99,6 +169,8 @@ export default function useCareerGame() {
         ast: stats.ast,
         gc: stats.gc,
         vi: stats.vi,
+        rating: season.rating,
+        headline: seasonHeadline,
         trophies,
       },
     ];
@@ -107,7 +179,8 @@ export default function useCareerGame() {
     const delta = calculateOvrDelta(player.age, season.rating);
     const newOvr = clamp(player.overall + delta, 40, 99);
     const newAge = player.age + 2;
-    
+    const salary = player.salary || estimateSalary(player);
+
     const updatedPlayer = {
       ...player,
       overall: newOvr,
@@ -115,42 +188,85 @@ export default function useCareerGame() {
       reputation: clamp(player.reputation + randInt(2, 8), 0, 100),
       contractYears: player.contractYears - 1,
       pjPenalty: null,
+      earnings: Math.round(((player.earnings || 0) + salary * 2) * 10) / 10,
+      salary: estimateSalary({ ...player, overall: newOvr, age: newAge }),
     };
 
+    const celebrate = topTrophy(trophies);
+
     if (shouldRetire(newAge, newOvr)) {
+      const score = legendScore({ player: updatedPlayer, history: newHistory });
+      addToHallOfFame({
+        name: player.name,
+        nationality: player.nationality,
+        position: player.position,
+        number: player.number,
+        team: player.team,
+        league: player.league,
+        peakOvr: Math.max(...newHistory.map((h) => h.ovr), updatedPlayer.overall),
+        pj: newHistory.reduce((s, h) => s + h.pj, 0),
+        gls: newHistory.reduce((s, h) => s + h.gls, 0),
+        ast: newHistory.reduce((s, h) => s + h.ast, 0),
+        trophies: newHistory.flatMap((h) => h.trophies || []),
+        earnings: updatedPlayer.earnings,
+        score,
+        title: legendTitle(score),
+      });
+      clearSave();
       update({
         player: updatedPlayer,
         history: newHistory,
         canStay: season.good,
         message: "",
+        headline: seasonHeadline,
+        celebration: celebrate,
         phase: PHASES.OVER,
       });
       return;
     }
 
-    // Determinar siguiente fase
-    const roll = Math.random();
-
-    // Penal decisivo: si ya jugaste con tu selección, puede tocarte definir una final
-    const CUPS = {
-      sa: "la Copa América",
-      eu: "la Eurocopa",
-      af: "la Copa Africana",
-      as: "la Copa Asiática",
-      na: "la Copa Oro",
+    const base = {
+      player: updatedPlayer,
+      history: newHistory,
+      canStay: season.good,
+      message: "",
+      headline: seasonHeadline,
+      celebration: celebrate,
     };
-    const natRegion = Object.values(LEAGUES).find((l) => l.c === player.nationality)?.r;
 
+    // Mundial cada 4 años (18, 22, 26…) si tenés partidos con la selección
+    if (isWorldCupYear(player.age) && (player.intCaps || 0) > 0) {
+      update({
+        ...base,
+        event: {
+          type: "worldcup",
+          title: "Copa del Mundo",
+          desc: `Tu selección disputa el Mundial. ${player.name} viaja como parte del plantel.`,
+          choices: [
+            {
+              label: "Jugar el Mundial",
+              visual: "flag",
+              fx: [{ t: "Sumás partidos internacionales", g: true }],
+              eff: "worldcup",
+            },
+          ],
+        },
+        phase: PHASES.EVENT,
+      });
+      return;
+    }
+
+    const cupName = nationalCupName(player.nationality);
+
+    // Penal decisivo por la copa de tu confederación
     if ((player.intCaps || 0) > 0 && player.age >= 20 && Math.random() < 0.25) {
       update({
-        player: updatedPlayer,
-        history: newHistory,
-        canStay: season.good,
-        message: "",
+        ...base,
         event: {
           type: "penal",
           title: "Penal decisivo",
-          desc: `Te toca definir la final de ${CUPS[natRegion] || "la Copa del Mundo"}.`,
+          desc: `Te toca definir la final de la ${cupName}.`,
+          trophy: { t: "continental", n: cupName },
           choices: [
             { label: "Izquierda", eff: "penalty" },
             { label: "Derecha", eff: "penalty" },
@@ -161,20 +277,12 @@ export default function useCareerGame() {
       return;
     }
 
-    if (
-      player.age >= 30 &&
-      firstClub &&
-      firstClub !== player.team &&
-      Math.random() < 0.25
-    ) {
-      const leagueEntry = Object.entries(LEAGUES).find(([, l]) =>
-        l.teams.includes(firstClub)
-      );
+    const roll = Math.random();
+
+    if (player.age >= 30 && firstClub && firstClub !== player.team && Math.random() < 0.25) {
+      const leagueEntry = Object.entries(LEAGUES).find(([, l]) => l.teams.includes(firstClub));
       update({
-        player: updatedPlayer,
-        history: newHistory,
-        canStay: season.good,
-        message: "",
+        ...base,
         event: {
           title: "Regreso triunfal",
           desc: "Tu primer club te propone volver para cerrar tu carrera como titular.",
@@ -196,10 +304,8 @@ export default function useCareerGame() {
         phase: PHASES.EVENT,
       });
     } else if (roll < 0.55) {
-      // Eventos dinámicos especiales o evento del catálogo
       let ev;
       const r2 = Math.random();
-      const cupName = (CUPS[natRegion] || "la Copa del Mundo").replace(/^la /, "");
 
       if (r2 < 0.15) {
         const offer = getOffers(1, player.team)[0];
@@ -244,23 +350,9 @@ export default function useCareerGame() {
         ev = { ...pickWeighted(EVENTS) };
       }
 
-      update({
-        player: updatedPlayer,
-        history: newHistory,
-        canStay: season.good,
-        message: "",
-        event: ev,
-        phase: PHASES.EVENT,
-      });
+      update({ ...base, event: ev, phase: PHASES.EVENT });
     } else {
-      update({
-        player: updatedPlayer,
-        history: newHistory,
-        canStay: season.good,
-        message: "",
-        offers: getOffers(3, player.team),
-        phase: PHASES.TRANSFER,
-      });
+      update({ ...base, offers: getOffers(3, player.team), phase: PHASES.TRANSFER });
     }
   }, [player, history, firstClub]);
 
@@ -271,6 +363,7 @@ export default function useCareerGame() {
       // Elección de fichaje dentro de un evento
       if (choice.transfer) {
         const o = choice.transfer;
+        const rival = areRivals(player.team, o.team);
         update({
           player: {
             ...player,
@@ -278,8 +371,12 @@ export default function useCareerGame() {
             league: o.league,
             contractYears: randInt(2, 4),
             pjPenalty: null,
+            morale: clamp(player.morale + (rival ? -15 : 0), 0, 100),
+            salary: estimateSalary({ ...player, league: o.league }),
           },
-          message: `¡Fichaste por ${o.team}!`,
+          message: rival
+            ? `Fichaste por ${o.team}, el clásico rival. Te espera un recibimiento hostil`
+            : `¡Fichaste por ${o.team}!`,
           phase: PHASES.PLAYING,
         });
         return;
@@ -290,30 +387,100 @@ export default function useCareerGame() {
       const eff = choice.eff;
 
       if (!eff || Object.keys(eff).length === 0) {
+        update({ offers: getOffers(3, player.team), phase: PHASES.TRANSFER });
+        return;
+      }
+
+      /* ===== Mundial ===== */
+      if (eff === "worldcup") {
+        const caps = (player.intCaps || 0) + randInt(4, 7);
+        const result = resolveWorldCup(player);
+        const p = { ...player, intCaps: caps, reputation: clamp(player.reputation + 6, 0, 100) };
+
+        if (result === "champion") {
+          const trophy = { t: "mundial", n: "Copa del Mundo" };
+          update({
+            player: { ...p, reputation: clamp(p.reputation + 15, 0, 100), morale: 100 },
+            history: awardTrophy(history, trophy),
+            celebration: trophy,
+            message: "¡CAMPEONES DEL MUNDO! Tu nombre queda grabado para siempre",
+            offers: getOffers(3, player.team),
+            phase: PHASES.TRANSFER,
+          });
+          return;
+        }
+
+        if (result === "final") {
+          update({
+            player: p,
+            message: "",
+            event: {
+              type: "penal",
+              title: "Penal decisivo",
+              desc: "Te toca definir la final de la Copa del Mundo.",
+              trophy: { t: "mundial", n: "Copa del Mundo" },
+              choices: [
+                { label: "Izquierda", eff: "penalty" },
+                { label: "Derecha", eff: "penalty" },
+              ],
+            },
+            phase: PHASES.EVENT,
+          });
+          return;
+        }
+
+        const texts = {
+          semis: "Semifinales: caíste peleando, pero el país te aplaude",
+          quarters: "Cuartos de final: eliminados en un partido durísimo",
+          groups: "Eliminación en fase de grupos: hay que levantarse",
+        };
         update({
+          player: p,
+          message: texts[result],
           offers: getOffers(3, player.team),
           phase: PHASES.TRANSFER,
         });
         return;
       }
 
-      // "resolved" viene de la UI cuando la animación de ruleta ya definió el resultado
+      /* ===== Penal decisivo ===== */
       if (eff === "penalty") {
-        if (Math.random() < 0.65) {
-          changes = {
+        const scored = Math.random() < 0.65;
+        const trophy = event?.trophy;
+
+        if (scored) {
+          const p = {
+            ...player,
             reputation: clamp(player.reputation + 15, 0, 100),
             morale: clamp(player.morale + 10, 0, 100),
             overall: clamp(player.overall + 1, 40, 99),
           };
-          msg = "¡GOL! Definiste la final y sos leyenda nacional";
+          update({
+            player: p,
+            history: trophy ? awardTrophy(history, trophy) : history,
+            celebration: trophy || null,
+            message: trophy
+              ? `¡GOL! Campeones de la ${trophy.n}`
+              : "¡GOL! Definiste la final y sos leyenda nacional",
+            offers: getOffers(3, player.team),
+            phase: PHASES.TRANSFER,
+          });
         } else {
-          changes = {
-            reputation: clamp(player.reputation - 8, 0, 100),
-            morale: clamp(player.morale - 10, 0, 100),
-          };
-          msg = "El arquero adivinó… fallaste el penal decisivo";
+          update({
+            player: {
+              ...player,
+              reputation: clamp(player.reputation - 8, 0, 100),
+              morale: clamp(player.morale - 10, 0, 100),
+            },
+            message: "El arquero adivinó… fallaste el penal decisivo",
+            offers: getOffers(3, player.team),
+            phase: PHASES.TRANSFER,
+          });
         }
-      } else if (eff === "gamble") {
+        return;
+      }
+
+      if (eff === "gamble") {
         const success = choice.resolved ?? Math.random() < 0.7;
         if (success) {
           changes = { overall: clamp(player.overall + 3, 40, 99) };
@@ -351,7 +518,7 @@ export default function useCareerGame() {
         });
       }
     },
-    [player, firstClub]
+    [player, history, firstClub, event]
   );
 
   const stay = useCallback(() => {
@@ -363,8 +530,11 @@ export default function useCareerGame() {
   }, [player]);
 
   const reset = useCallback(() => {
+    clearSave();
     setState(initialState);
   }, []);
+
+  const dismissCelebration = useCallback(() => update({ celebration: null }), []);
 
   return {
     player,
@@ -372,7 +542,9 @@ export default function useCareerGame() {
     offers,
     event,
     message,
+    headline,
     canStay,
+    celebration,
     phase,
     startGame,
     pickClub,
@@ -380,5 +552,6 @@ export default function useCareerGame() {
     handleChoice,
     stay,
     reset,
+    dismissCelebration,
   };
 }

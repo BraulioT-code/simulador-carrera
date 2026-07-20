@@ -4,7 +4,7 @@ import { getKit } from "../data";
 
 const STEPS = ["Nacionalidad", "Identidad", "Posición"];
 
-export default function SetupScreen({ onConfirm }) {
+export default function SetupScreen({ onConfirm, onOpenHallOfFame }) {
   const [step, setStep] = useState(0);
   const [surname, setSurname] = useState("");
   const [number, setNumber] = useState(10);
@@ -99,7 +99,16 @@ export default function SetupScreen({ onConfirm }) {
       {/* ===== MOBILE: wizard de 3 pasos ===== */}
       <div className="flex h-[100dvh] flex-col overflow-hidden md:hidden">
         <div className="shrink-0 px-5 pt-5">
-          <h1 className="text-xl font-black tracking-tight">{STEPS[step]}</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-black tracking-tight">{STEPS[step]}</h1>
+            <button
+              type="button"
+              onClick={onOpenHallOfFame}
+              className="rounded-full border border-zinc-700 px-3 py-1 text-[11px] font-bold text-zinc-400 transition-colors hover:text-white"
+            >
+              Salón de la Fama
+            </button>
+          </div>
           <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
             <div
               className="h-full rounded-full bg-teal-400 transition-all duration-300"
@@ -166,8 +175,15 @@ export default function SetupScreen({ onConfirm }) {
       {/* ===== DESKTOP: 3 columnas ===== */}
       <div className="mx-auto hidden max-w-[1200px] p-4 md:block">
         <div className="overflow-hidden rounded-2xl bg-[#0d0d10] shadow-2xl ring-1 ring-zinc-800/60">
-          <div className="border-b border-zinc-800/70 px-7 py-5">
+          <div className="flex items-center justify-between border-b border-zinc-800/70 px-7 py-5">
             <h1 className="text-2xl font-black tracking-tight">Definí tu identidad</h1>
+            <button
+              type="button"
+              onClick={onOpenHallOfFame}
+              className="rounded-full border border-zinc-700 px-4 py-1.5 text-[12px] font-bold text-zinc-400 transition-colors hover:text-white"
+            >
+              Salón de la Fama
+            </button>
           </div>
 
           <div className="grid grid-cols-1 gap-8 px-7 py-6 md:grid-cols-[1fr_1.3fr_1fr]">

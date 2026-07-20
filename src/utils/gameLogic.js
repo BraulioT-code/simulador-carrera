@@ -105,6 +105,30 @@ const CONTINENTAL_BY_REGION = {
   af: "Champions League Africana",
 };
 
+// Copa de selecciones por confederación
+export const NATIONAL_CUPS = {
+  eu: "Eurocopa",
+  sa: "Copa América",
+  na: "Copa Oro",
+  as: "Copa Asiática",
+  af: "Copa Africana",
+};
+
+/** Región (confederación) del país del jugador, según las ligas del juego */
+export function regionOf(country) {
+  return Object.values(LEAGUES).find((l) => l.c === country)?.r || null;
+}
+
+/** Nombre del torneo de selecciones del jugador */
+export function nationalCupName(country) {
+  return NATIONAL_CUPS[regionOf(country)] || "Copa de Naciones";
+}
+
+/** Años de Mundial: 2 temporadas antes/después, cada 4 años de carrera (18, 22, 26…) */
+export function isWorldCupYear(age) {
+  return age >= 18 && (age - 18) % 4 === 0;
+}
+
 /**
  * Genera trofeos ganados en la temporada.
  * Cada trofeo es { t: tipo, n: nombre } — ej: { t: "liga", n: "Liga BetPlay" }.
@@ -138,9 +162,62 @@ export function generateTrophies(player) {
 
   if (player.overall >= 85 && Math.random() < 0.08) trophies.push({ t: "ballon", n: "Balón de Oro" });
   if (player.overall >= 88 && Math.random() < 0.12) trophies.push({ t: "bota", n: "Bota de Oro" });
-  if ((player.intCaps || 0) > 20 && Math.random() < 0.04) trophies.push({ t: "mundial", n: "Copa del Mundo" });
 
   return trophies;
+}
+
+/**
+ * Premios individuales de la temporada según el rendimiento real.
+ * Se calculan aparte de los títulos de equipo.
+ */
+export function generateAwards(player, stats, rating) {
+  const awards = [];
+  const leagueData = LEAGUES[player.league];
+  const prestige = leagueData?.p ?? 60;
+  const isGK = player.position === "GK";
+
+  // MVP de la liga: gran temporada + nivel acorde a la liga
+  if (rating >= 8.5 && player.overall >= prestige - 6 && Math.random() < 0.35) {
+    awards.push({ t: "mvp", n: `MVP de la ${player.league}` });
+  }
+
+  // Equipo del año
+  if (rating >= 7.5 && Math.random() < 0.4) {
+    awards.push({ t: "eoty", n: `Equipo del Año · ${player.league}` });
+  }
+
+  // Goleador / Guante de oro
+  if (!isGK && stats.gls >= 25 && Math.random() < 0.6) {
+    awards.push({ t: "bota", n: `Goleador de la ${player.league}` });
+  }
+  if (isGK && stats.vi >= stats.pj * 0.38 && Math.random() < 0.5) {
+    awards.push({ t: "mvp", n: `Guante de Oro · ${player.league}` });
+  }
+
+  return awards;
+}
+
+/**
+ * Resuelve el Mundial: devuelve el resultado de la campaña de tu selección.
+ * `bonus` mejora las chances (por ejemplo tras convertir el penal decisivo).
+ */
+export function resolveWorldCup(player, bonus = 0) {
+  const strength = clamp((player.overall - 60) / 40 + (player.reputation || 0) / 250 + bonus, 0, 1);
+  const r = Math.random();
+  if (r < 0.06 + strength * 0.22) return "champion";
+  if (r < 0.18 + strength * 0.35) return "final";
+  if (r < 0.42 + strength * 0.4) return "semis";
+  if (r < 0.75) return "quarters";
+  return "groups";
+}
+
+/** Salario anual estimado (millones €) según OVR, edad y prestigio de liga */
+export function estimateSalary(player) {
+  const prestige = LEAGUES[player.league]?.p ?? 55;
+  const base = Math.pow(Math.max(0, player.overall - 42) / 10, 2.35) * 0.42;
+  const leagueFactor = 0.35 + (prestige / 95) * 1.15;
+  const ageFactor = player.age <= 20 ? 0.45 : player.age >= 34 ? 0.75 : 1;
+  return Math.max(0.05, Math.round(base * leagueFactor * ageFactor * 100) / 100);
 }
 
 /**

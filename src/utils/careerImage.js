@@ -6,12 +6,12 @@ const PAD = 24;
 const SCALE = 2;
 
 // Carga una imagen sin manchar el canvas; null si falla o tarda
-function loadImg(url) {
+function loadImg(url, timeout = 2500) {
   return new Promise((resolve) => {
     if (!url) return resolve(null);
     const img = new Image();
     img.crossOrigin = "anonymous";
-    const timer = setTimeout(() => resolve(null), 2500);
+    const timer = setTimeout(() => resolve(null), timeout);
     img.onload = () => {
       clearTimeout(timer);
       resolve(img);
@@ -22,6 +22,59 @@ function loadImg(url) {
     };
     img.src = url;
   });
+}
+
+/**
+ * Carga un escudo de forma segura para exportar:
+ * 1) intenta el PNG del CDN con CORS,
+ * 2) si falla, lo descarga con fetch y lo convierte a data URL,
+ * 3) si tampoco, devuelve null y se dibuja un escudo SVG propio.
+ */
+async function loadCrest(url) {
+  if (!url) return null;
+  const direct = await loadImg(url);
+  if (direct) return direct;
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl = await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = () => resolve(null);
+      fr.readAsDataURL(blob);
+    });
+    return dataUrl ? loadImg(dataUrl, 1500) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Escudo SVG generado con los colores del club (respaldo con aspecto real) */
+function crestSvg(team, league) {
+  const color = getTeamColor(team, league);
+  const ini = initials(team);
+  const light = "#ffffff";
+  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'>
+    <defs>
+      <linearGradient id='cg' x1='0' y1='0' x2='0' y2='1'>
+        <stop offset='0' stop-color='${color}'/>
+        <stop offset='1' stop-color='${color}' stop-opacity='.75'/>
+      </linearGradient>
+      <clipPath id='cs'>
+        <path d='M24 2 L44 8 v16 c0 11 -8 17.5 -20 22 C12 41.5 4 35 4 24 V8 z'/>
+      </clipPath>
+    </defs>
+    <path d='M24 2 L44 8 v16 c0 11 -8 17.5 -20 22 C12 41.5 4 35 4 24 V8 z' fill='url(#cg)'/>
+    <g clip-path='url(#cs)'>
+      <rect x='18' y='0' width='5' height='48' fill='${light}' opacity='.22'/>
+      <rect x='27' y='0' width='5' height='48' fill='${light}' opacity='.22'/>
+    </g>
+    <path d='M24 2 L44 8 v16 c0 11 -8 17.5 -20 22 C12 41.5 4 35 4 24 V8 z'
+      fill='none' stroke='${light}' stroke-opacity='.55' stroke-width='2'/>
+    <text x='24' y='27' text-anchor='middle' font-family='Segoe UI, Arial, sans-serif'
+      font-weight='900' font-size='17' fill='${light}'>${ini}</text>
+  </svg>`;
 }
 
 function logoUrlFor(team) {
@@ -51,25 +104,8 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.roundRect(x, y, w, h, r);
 }
 
-function drawMonogram(ctx, team, league, x, y, size) {
-  ctx.save();
-  roundRect(ctx, x, y, size, size, size / 2);
-  ctx.fillStyle = getTeamColor(team, league);
-  ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `900 ${size * 0.42}px 'Segoe UI', sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(initials(team), x + size / 2, y + size / 2 + 1);
-  ctx.restore();
-}
-
 function drawLogo(ctx, img, team, league, x, y, size) {
-  if (img) {
-    ctx.drawImage(img, x, y, size, size);
-  } else {
-    drawMonogram(ctx, team, league, x, y, size);
-  }
+  if (img) ctx.drawImage(img, x, y, size, size);
 }
 
 /* ===== Trofeos: los mismos SVG de la app, cargados como imagen ===== */
@@ -126,6 +162,17 @@ function trophySvg(type, gold = false) {
         <path d='M8.5 12.5 C6 15 6.5 18 8 21 l1.5 2.5 h5 L16 21 c1.5 -3 2 -6 -.5 -8.5 c-1 1.6 -6 1.6 -7 0 z' fill='url(#g)'/>
         <path d='M7.5 23.5 h9 l.8 2.2 h-10.6 z' fill='#3a7d44'/>
         <rect x='5.5' y='25.7' width='13' height='2.3' rx='1' fill='#2c5e34'/>${close}`;
+    case "mvp":
+      return `${open}${gradDef(GOLD)}
+        <path d='M7 1 l4 9 -3 1.5 -4 -8.5 z' fill='#b91c1c'/>
+        <path d='M17 1 l-4 9 3 1.5 4 -8.5 z' fill='#dc2626'/>
+        <circle cx='12' cy='19' r='8.5' fill='url(#g)'/>
+        <circle cx='12' cy='19' r='6' fill='none' stroke='#8a6114' stroke-width='.9' opacity='.55'/>
+        <path d='M12 14.5 l1.5 3 3.3.5 -2.4 2.3 .6 3.3 -3 -1.6 -3 1.6 .6 -3.3 -2.4 -2.3 3.3 -.5 z' fill='#8a6114' opacity='.75'/>${close}`;
+    case "eoty":
+      return `${open}${gradDef(SILVER)}
+        <path d='M12 2 l9 3 v9 c0 6 -4 9.5 -9 12 c-5 -2.5 -9 -6 -9 -12 v-9 z' fill='url(#g)'/>
+        <path d='M12 9 l1.7 3.5 3.8.5 -2.75 2.7 .65 3.8 -3.4 -1.8 -3.4 1.8 .65 -3.8 -2.75 -2.7 3.8 -.5 z' fill='#52525b' opacity='.7'/>${close}`;
     case "continental":
       return `${open}${gradDef(gold ? GOLD : SILVER)}
         <path d='M5.5 4 C0.5 4 0.5 13 6.5 14 M18.5 4 C23.5 4 23.5 13 17.5 14' fill='none' stroke='url(#g)' stroke-width='2.4' stroke-linecap='round'/>
@@ -180,7 +227,14 @@ function fmtValue(mv) {
 /**
  * Genera la imagen resumen de la carrera (canvas listo para exportar).
  */
-export async function generateCareerImage({ player, history, natData, posData, marketVal }) {
+export async function generateCareerImage({
+  player,
+  history,
+  natData,
+  posData,
+  marketVal,
+  legend = null,
+}) {
   const rows = history;
   const allTrophies = rows.flatMap((h) => h.trophies || []);
   const grouped = [];
@@ -199,7 +253,8 @@ export async function generateCareerImage({ player, history, natData, posData, m
   const ROW_H = 42;
   const trophyLines = grouped.length ? Math.ceil(grouped.length / 3) : 0;
   const trophiesH = trophyLines ? trophyLines * 44 + 10 : 0;
-  const H = PAD + 100 + 60 + trophiesH + 30 + rows.length * ROW_H + PAD;
+  const legendH = legend ? 58 : 0;
+  const H = PAD + 100 + 60 + trophiesH + 30 + rows.length * ROW_H + legendH + PAD;
 
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE;
@@ -214,10 +269,21 @@ export async function generateCareerImage({ player, history, natData, posData, m
 
   // Pre-carga de imágenes
   const teams = [...new Set(rows.map((r) => r.team).concat(player.team))];
+  const leagueOf = {};
+  rows.forEach((r) => (leagueOf[r.team] = r.league));
+  leagueOf[player.team] = leagueOf[player.team] || player.league;
+
   const logoImgs = {};
   await Promise.all(
     teams.map(async (t) => {
-      logoImgs[t] = await loadImg(logoUrlFor(t));
+      // Escudo real del CDN; si no se puede exportar, escudo SVG con los colores del club
+      const real = await loadCrest(logoUrlFor(t));
+      logoImgs[t] =
+        real ||
+        (await loadImg(
+          `data:image/svg+xml;charset=utf-8,${encodeURIComponent(crestSvg(t, leagueOf[t]))}`,
+          1500
+        ));
     })
   );
   const flagImg = natData ? await loadImg(`https://flagcdn.com/w40/${natData.c}.png`) : null;
@@ -437,6 +503,43 @@ export async function generateCareerImage({ player, history, natData, posData, m
     ctx.fillText(String(isGK ? row.vi : row.ast), colAST, cy + 1);
 
     y += ROW_H;
+  }
+
+  /* ===== Puntaje de leyenda ===== */
+  if (legend) {
+    y += 8;
+    roundRect(ctx, PAD, y, W - PAD * 2, 44, 12);
+    ctx.fillStyle = "rgba(0,0,0,.4)";
+    ctx.fill();
+    ctx.strokeStyle = `${legend.color}55`;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#71717a";
+    ctx.font = "800 9px 'Segoe UI', sans-serif";
+    ctx.fillText("PUNTAJE DE LEYENDA", PAD + 16, y + 15);
+    ctx.fillStyle = legend.color;
+    ctx.font = "900 16px 'Segoe UI', sans-serif";
+    ctx.fillText(legend.title, PAD + 16, y + 31);
+
+    // barra de progreso
+    const barX = PAD + 200;
+    const barW = W - PAD * 2 - 200 - 90;
+    roundRect(ctx, barX, y + 19, barW, 8, 4);
+    ctx.fillStyle = "#27272a";
+    ctx.fill();
+    roundRect(ctx, barX, y + 19, (barW * legend.score) / 100, 8, 4);
+    ctx.fillStyle = legend.color;
+    ctx.fill();
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = legend.color;
+    ctx.font = "900 26px 'Segoe UI', sans-serif";
+    ctx.fillText(String(legend.score), W - PAD - 42, y + 24);
+    ctx.fillStyle = "#52525b";
+    ctx.font = "800 13px 'Segoe UI', sans-serif";
+    ctx.fillText("/100", W - PAD - 14, y + 26);
   }
 
   return canvas;
