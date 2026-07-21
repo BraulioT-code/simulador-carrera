@@ -28,12 +28,19 @@ create table if not exists public.careers (
   ast          int  not null check (ast >= 0),
   int_caps     int  not null default 0 check (int_caps >= 0),
   earnings     numeric(8,1) not null default 0 check (earnings >= 0),
+  reputation   int  not null default 20 check (reputation between 0 and 100),
+  morale       int  not null default 70 check (morale between 0 and 100),
 
   trophies     jsonb not null default '[]'::jsonb,
   seasons      jsonb not null,
 
   created_at   timestamptz not null default now()
 );
+
+-- Migración para bases ya creadas: agrega las columnas si faltan
+alter table public.careers
+  add column if not exists reputation int not null default 20,
+  add column if not exists morale int not null default 70;
 
 create index if not exists careers_ranking_idx
   on public.careers (score desc, created_at asc);
@@ -215,7 +222,8 @@ begin
 
   insert into public.careers (
     alias, player_name, nationality, "position", "number", club, league,
-    score, title, peak_ovr, pj, gls, ast, int_caps, earnings, trophies, seasons
+    score, title, peak_ovr, pj, gls, ast, int_caps, earnings,
+    reputation, morale, trophies, seasons
   ) values (
     v_alias,
     v_name,
@@ -240,6 +248,8 @@ begin
     v_ast,
     v_caps,
     least(coalesce((payload->>'earnings')::numeric, 0), 9999),
+    greatest(0, least(100, coalesce((payload->>'reputation')::int, 20))),
+    greatest(0, least(100, coalesce((payload->>'morale')::int, 70))),
     coalesce(payload->'trophies', '[]'::jsonb),
     v_seasons
   )

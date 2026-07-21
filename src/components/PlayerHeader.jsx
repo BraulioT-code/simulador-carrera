@@ -5,6 +5,33 @@ import ClubLogo from "./ClubLogo";
 import { useEffect, useRef, useState } from "react";
 import CountUp, { DeltaBadge, SEQ } from "./CountUp";
 
+/** Color de la moral: rojo (bajo) → ámbar → verde (alto) */
+function moraleColor(v) {
+  if (v >= 75) return "#22c55e";
+  if (v >= 55) return "#84cc16";
+  if (v >= 40) return "#eab308";
+  if (v >= 25) return "#f97316";
+  return "#ef4444";
+}
+
+/** Barra fina de estadística 0-100 con etiqueta */
+function StatBar({ label, value, color }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-6 shrink-0 text-[7px] font-black tracking-wider text-zinc-500 lg:text-[8px]">
+        {label}
+      </span>
+      <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-800">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${value}%`, background: color }}
+        />
+      </div>
+      <span className="w-5 shrink-0 text-right text-[8px] font-bold text-zinc-400">{value}</span>
+    </div>
+  );
+}
+
 export default function PlayerHeader({ player, natData, posData, marketVal }) {
   // Diferencia de OVR respecto a la temporada anterior (se muestra unos segundos)
   const prevOvr = useRef(player.overall);
@@ -79,6 +106,12 @@ export default function PlayerHeader({ player, natData, posData, marketVal }) {
             >
               {player.team}
             </span>
+          </div>
+
+          {/* Reputación y moral */}
+          <div className="mt-1.5 flex flex-col gap-1">
+            <StatBar label="REP" value={player.reputation ?? 20} color="#a78bfa" />
+            <StatBar label="MOR" value={player.morale ?? 70} color={moraleColor(player.morale ?? 70)} />
           </div>
         </div>
 

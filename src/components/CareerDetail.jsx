@@ -8,6 +8,28 @@ import StatsBar from "./StatsBar";
 import TrophyCabinet from "./TrophyCabinet";
 import Timeline from "./Timeline";
 
+function moraleColor(v) {
+  if (v >= 75) return "#22c55e";
+  if (v >= 55) return "#84cc16";
+  if (v >= 40) return "#eab308";
+  if (v >= 25) return "#f97316";
+  return "#ef4444";
+}
+
+function MiniBar({ label, value, color }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-6 shrink-0 text-[7px] font-black tracking-wider text-zinc-500">
+        {label}
+      </span>
+      <div className="h-1 w-20 overflow-hidden rounded-full bg-zinc-800">
+        <div className="h-full rounded-full" style={{ width: `${value}%`, background: color }} />
+      </div>
+      <span className="w-5 shrink-0 text-right text-[8px] font-bold text-zinc-400">{value}</span>
+    </div>
+  );
+}
+
 /**
  * Vista pública de una carrera del ranking: ficha, totales, vitrina,
  * línea de tiempo completa y puntaje de leyenda.
@@ -123,6 +145,18 @@ export default function CareerDetail({ careerId, preview = null, onClose }) {
                       <ClubLogo team={career.club} league={career.league} size={20} />
                       <span className="truncate text-sm font-extrabold">{career.club}</span>
                     </div>
+
+                    {/* Reputación y moral (si la carrera las trae) */}
+                    {(career.reputation != null || career.morale != null) && (
+                      <div className="mt-1.5 flex flex-col gap-1">
+                        <MiniBar label="REP" value={career.reputation ?? 20} color="#a78bfa" />
+                        <MiniBar
+                          label="MOR"
+                          value={career.morale ?? 70}
+                          color={moraleColor(career.morale ?? 70)}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="ml-2 shrink-0 text-right">
                     <div className="text-[8px] font-semibold text-zinc-400">

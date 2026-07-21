@@ -42,16 +42,32 @@ export function expectedContribution(position, ovr) {
 /** Variación de temporada: 0.55 (año flojo) a 1.45 (año enorme), centrada en 1 */
 const seasonSwing = () => 0.55 + Math.random() * 0.9;
 
-export function generateStats(position, ovr, age) {
+/**
+ * Factor de moral sobre el rendimiento (±8% aprox).
+ * Moral 70 = neutral; feliz (100) rinde mejor, desmotivado (0) rinde peor.
+ * También afecta un poco los minutos (un jugador enojado juega menos).
+ */
+function moraleFactor(morale) {
+  return 1 + ((morale ?? 70) - 70) / 400; // 100→1.075 · 40→0.925
+}
+
+export function generateStats(position, ovr, age, morale = 70) {
   const f = skillFactor(ovr);
+  const mf = moraleFactor(morale);
   const maxPJ = age <= 17 ? 45 : age <= 19 ? 70 : age >= 34 ? 65 : 85;
   const minPJ = age <= 17 ? 15 : age <= 19 ? 35 : age >= 34 ? 25 : 50;
-  const pj = clamp(randInt(minPJ, maxPJ) + Math.floor((ovr - 60) * 0.3), minPJ, maxPJ);
+  // La moral baja recorta minutos; la alta ayuda a ser titular fijo
+  const pjMoral = 1 + ((morale ?? 70) - 70) / 600;
+  const pj = clamp(
+    Math.round((randInt(minPJ, maxPJ) + Math.floor((ovr - 60) * 0.3)) * pjMoral),
+    minPJ,
+    maxPJ
+  );
 
   if (position === "GK") {
-    // Goles en contra: menos cuanto mejor el arquero; vallas invictas al revés
-    const gc = Math.max(0, Math.round(pj * (1.35 - 0.45 * f) * seasonSwing()));
-    const vi = Math.round(pj * 0.3 * f * seasonSwing());
+    // Goles en contra: menos cuanto mejor el arquero (y la moral); vallas al revés
+    const gc = Math.max(0, Math.round(pj * (1.35 - 0.45 * f) * seasonSwing() * (2 - mf)));
+    const vi = Math.round(pj * 0.3 * f * seasonSwing() * mf);
     return { pj, pjMax: maxPJ, gls: 0, ast: 0, gc, vi };
   }
 
@@ -59,11 +75,16 @@ export function generateStats(position, ovr, age) {
   return {
     pj,
     pjMax: maxPJ,
-    gls: Math.round(pj * p.g * f * seasonSwing()),
-    ast: Math.round(pj * p.a * f * seasonSwing()),
+    gls: Math.round(pj * p.g * f * seasonSwing() * mf),
+    ast: Math.round(pj * p.a * f * seasonSwing() * mf),
     gc: 0,
     vi: 0,
   };
+}
+
+/** Deriva la moral hacia 70 (la euforia y el bajón se diluyen con el tiempo) */
+export function moraleDrift(morale) {
+  return Math.round(70 + ((morale ?? 70) - 70) * 0.7);
 }
 
 /** Todos los clubes del juego con su liga y ranking */
@@ -160,6 +181,11 @@ export function offerWindow(currentRating, season, player = null, stats = null) 
     if (share < 0.5) bonus = -3;
     else if (share < 0.65) bonus = Math.max(0, bonus - 2);
   }
+
+  // Fama: una gran reputación abre la puerta de clubes un poco más grandes
+  const rep = player?.reputation ?? 20;
+  if (rep >= 85) bonus += 2;
+  else if (rep >= 65) bonus += 1;
 
   // Techo = tu nivel real + la proyección de la temporada. El club actual solo
   // importa para que nunca te ofrezcan algo peor de lo que ya tenés.

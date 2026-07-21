@@ -135,6 +135,13 @@ Cada trofeo se guarda con su **nombre específico** y se dibuja como SVG (sin em
 
 Cada premio individual otorga un **boost** al ganarlo (`AWARD_BOOSTS`): el Balón de Oro da +2 OVR, +15 reputación y +12 moral; la Bota de Oro, Rey de Asistencias, Mejor Defensa, Portero del Año y Revelación dan +1 OVR (la Revelación +2) y reputación; MVP y Guante de Oro +1 OVR; Equipo del Año solo reputación. Así cada posición tiene una vía propia de crecimiento acelerado, no solo los goleadores.
 
+### Reputación y moral
+
+Dos barras en la ficha del jugador (0-100), con efecto real:
+
+- **Reputación** (violeta): arranca en 20 y crece con tu nivel (los cracks son más famosos), los caps y los premios. Influye en el recorrido de tu selección en torneos y abre la puerta de clubes algo más grandes en el mercado (85+ suma +2 al techo de ofertas, 65+ suma +1).
+- **Moral** (rojo → verde): arranca en 70 y la mueve cada temporada (un año enorme la sube, uno malo la baja), derivando siempre hacia 70. **Afecta el rendimiento**: con moral alta rendís hasta ~8% mejor y jugás más minutos; con moral baja, al revés (un DC de OVR 85 hace ~54 goles con moral máxima vs ~41 con moral por el piso). Las decisiones de eventos (renovar, disculparse, fichar por un rival) mueven la moral.
+
 La producción por temporada usa **perfiles por posición** (`POSITION_PROFILE` en `gameLogic.js`): un delantero centro promedia 0.60 goles por partido escalados por su nivel, un extremo 0.42 con más asistencias, un MCO reparte juego, un DFC casi no marca. La curva de habilidad crece más rápido en la élite (potencia 1.55 + prima de estrella hasta +35% de 88 a 99), así que los cracks producen como cracks: un DC que llega a la élite termina con **mediana de ~380 goles de carrera** y las leyendas superan los 500 (máximos cerca de 800, territorio Ronaldo/Messi). La variación anual va de 0.55× (año flojo) a 1.45× (año enorme). La evaluación de renovación compara contra la media esperada de ese mismo perfil.
 
 ### Animación de la simulación

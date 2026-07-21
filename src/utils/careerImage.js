@@ -398,12 +398,37 @@ export async function generateCareerImage({
   // apellido + club
   ctx.font = "800 19px 'Segoe UI', sans-serif";
   ctx.fillStyle = "#ffffff";
-  drawLogo(ctx, logoImgs[player.team], player.team, player.league, cardX + 16, y + 48, 26);
+  drawLogo(ctx, logoImgs[player.team], player.team, player.league, cardX + 16, y + 44, 24);
   ctx.fillText(
     truncate(ctx, `${player.name} · ${player.team}`, cardW - 200),
-    cardX + 52,
-    y + 62
+    cardX + 48,
+    y + 58
   );
+
+  // Reputación y moral (dos barras finas bajo el nombre)
+  const rep = player.reputation ?? 20;
+  const mor = player.morale ?? 70;
+  const barX = cardX + 48;
+  const barW = Math.min(180, cardW - 210);
+  const morColor = mor >= 75 ? "#22c55e" : mor >= 55 ? "#84cc16" : mor >= 40 ? "#eab308" : mor >= 25 ? "#f97316" : "#ef4444";
+  const drawStatBar = (by, label, val, color) => {
+    ctx.font = "700 8px 'Segoe UI', sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#71717a";
+    ctx.fillText(label, barX, by + 3);
+    roundRect(ctx, barX + 24, by - 3, barW, 4, 2);
+    ctx.fillStyle = "#3f3f46";
+    ctx.fill();
+    roundRect(ctx, barX + 24, by - 3, (barW * val) / 100, 4, 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.fillStyle = "#a1a1aa";
+    ctx.textAlign = "left";
+    ctx.font = "700 8px 'Segoe UI', sans-serif";
+    ctx.fillText(String(val), barX + 24 + barW + 5, by + 3);
+  };
+  drawStatBar(y + 74, "REP", rep, "#a78bfa");
+  drawStatBar(y + 84, "MOR", mor, morColor);
 
   // edad / valor (etiqueta a la izquierda del valor, sin solaparse)
   ctx.textAlign = "right";

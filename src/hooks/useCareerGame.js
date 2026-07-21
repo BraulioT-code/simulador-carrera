@@ -23,6 +23,7 @@ import {
   isWorldCupYear,
   nationalCupName,
   estimateSalary,
+  moraleDrift,
 } from "../utils/gameLogic";
 import { generateHeadline } from "../utils/headlines";
 import { legendScore, legendTitle } from "../utils/legend";
@@ -228,7 +229,8 @@ export default function useCareerGame() {
     // estado inconsistente) procese dos veces la misma temporada.
     if (!player || phase !== PHASES.PLAYING) return;
 
-    const stats = generateStats(player.position, player.overall, player.age);
+    // La moral influye en el rendimiento de la temporada
+    const stats = generateStats(player.position, player.overall, player.age, player.morale);
     // Minutos reducidos por decisiones de eventos (ej: conflicto con el DT)
     if (player.pjPenalty) {
       stats.pj = Math.max(5, Math.round(stats.pj * player.pjPenalty));
@@ -309,12 +311,22 @@ export default function useCareerGame() {
     const newAge = player.age + 2;
     const salary = player.salary || estimateSalary(player);
 
+    // Moral: la temporada la mueve (buen año sube, malo baja) y luego deriva a 70
+    const moraleSwing =
+      season.rating >= 8 ? 8 : season.rating >= 6.5 ? 3 : season.rating < 4 ? -8 : -2;
+    const newMorale = moraleDrift(
+      clamp((player.morale ?? 70) + moraleSwing + boost.morale, 0, 100)
+    );
+
+    // La reputación crece con el nivel (jugadores de élite son más famosos) y premios
+    const repGain = randInt(1, 4) + Math.max(0, Math.round((player.overall - 70) / 6)) + boost.rep;
+
     const updatedPlayer = {
       ...player,
       overall: newOvr,
       age: newAge,
-      reputation: clamp(player.reputation + randInt(2, 8) + boost.rep, 0, 100),
-      morale: clamp((player.morale || 70) + boost.morale, 0, 100),
+      reputation: clamp(player.reputation + repGain, 0, 100),
+      morale: clamp(newMorale, 0, 100),
       contractYears: player.contractYears - 1,
       pjPenalty: null,
       intCaps: (player.intCaps || 0) + (nt?.caps || 0),

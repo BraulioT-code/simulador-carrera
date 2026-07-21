@@ -78,6 +78,8 @@ export async function submitCareer({ alias, player, history, natData }) {
     league: player.league,
     int_caps: player.intCaps || 0,
     earnings: player.earnings || 0,
+    reputation: player.reputation ?? 20,
+    morale: player.morale ?? 70,
     trophies: history.flatMap((h) => h.trophies || []),
     // Datos para revalidar el puntaje y para mostrar la carrera completa
     seasons: history.map((h) => ({
