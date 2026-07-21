@@ -12,3 +12,6 @@ export { default as JerseyPreview } from "./JerseyPreview";
 export { default as TrophyCelebration } from "./TrophyCelebration";
 export { default as CountUp } from "./CountUp";
 export { default as HallOfFame } from "./HallOfFame";
+export { default as Leaderboard } from "./Leaderboard";
+export { default as CareerDetail } from "./CareerDetail";
+export { default as PublishCareer } from "./PublishCareer";

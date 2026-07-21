@@ -8,8 +8,11 @@ import {
   ClubLogo,
   TrophyCelebration,
   HallOfFame,
+  Leaderboard,
+  PublishCareer,
 } from "../components";
 import { SEQ } from "../components/CountUp";
+import { careerKey, isPublished, isBackendEnabled } from "../utils/leaderboard";
 import { ALL_COUNTRIES, POS_MAP, PHASES, teamTint, getClubRating } from "../data";
 import { marketValue } from "../utils/helpers";
 import { generateCareerImage } from "../utils/careerImage";
@@ -202,6 +205,13 @@ export default function GameScreen({
   const [shareMsg, setShareMsg] = useState("");
   const [sharing, setSharing] = useState(false);
   const [showHof, setShowHof] = useState(false);
+  const [showRanking, setShowRanking] = useState(false);
+  const [showPublish, setShowPublish] = useState(false);
+  const [publishedId, setPublishedId] = useState(null);
+
+  const alreadyPublished =
+    publishedId !== null ||
+    (phase === PHASES.OVER && isPublished(careerKey(player, history)));
 
   // La celebración espera a que termine la secuencia de números de la temporada
   // (OVR → Valor → OVR de la fila → PJ → GLS → AST) y entra 1s después.
@@ -309,6 +319,24 @@ export default function GameScreen({
     <div className="flex min-h-[100dvh] flex-col">
       <TrophyCelebration trophy={showCelebration ? celebration : null} onDone={dismissCelebration} />
       {showHof && <HallOfFame onClose={() => setShowHof(false)} />}
+      {showRanking && (
+        <Leaderboard onClose={() => setShowRanking(false)} highlightId={publishedId} />
+      )}
+      {showPublish && (
+        <PublishCareer
+          player={player}
+          history={history}
+          natData={natData}
+          score={score}
+          title={legendTitle(score)}
+          onClose={() => setShowPublish(false)}
+          onDone={(career) => {
+            setPublishedId(career?.id ?? null);
+            setShowPublish(false);
+            setShowRanking(true);
+          }}
+        />
+      )}
 
       <div className="mx-auto flex w-full max-w-[1080px] flex-1 flex-col p-3 lg:grid lg:grid-cols-[46%_1fr] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-4 lg:p-4">
         {/* Bloque A: jugador */}
@@ -607,6 +635,19 @@ export default function GameScreen({
                 >
                   Descargar
                 </button>
+                {isBackendEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => (alreadyPublished ? setShowRanking(true) : setShowPublish(true))}
+                    className={`rounded-full px-6 py-2.5 text-[13px] font-bold transition-colors ${
+                      alreadyPublished
+                        ? "border border-zinc-500 text-white hover:bg-zinc-800"
+                        : "bg-emerald-500 text-black hover:bg-emerald-400"
+                    }`}
+                  >
+                    {alreadyPublished ? "Ver ranking global" : "Publicar en el ranking"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowHof(true)}

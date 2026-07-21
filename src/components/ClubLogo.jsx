@@ -27,6 +27,12 @@ async function searchBadge(query) {
   }
 }
 
+/** Deja el escudo cacheado para que la imagen de carrera pueda usarlo */
+export function getCachedLogo(team) {
+  if (memCache.has(team)) return memCache.get(team);
+  return lsCache[team] || null;
+}
+
 async function lookupLogo(team) {
   if (memCache.has(team)) return memCache.get(team);
   if (lsCache[team]) {

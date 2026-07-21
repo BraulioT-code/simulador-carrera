@@ -25,29 +25,55 @@ function loadImg(url, timeout = 2500) {
 }
 
 /**
- * Carga un escudo de forma segura para exportar:
- * 1) intenta el PNG del CDN con CORS,
- * 2) si falla, lo descarga con fetch y lo convierte a data URL,
- * 3) si tampoco, devuelve null y se dibuja un escudo SVG propio.
+ * Proxy de imágenes con CORS habilitado.
+ * Algunos CDN de escudos no envían cabeceras CORS, así que el canvas no puede
+ * exportarlos; pasándolos por el proxy sí se pueden dibujar y copiar.
  */
-async function loadCrest(url) {
-  if (!url) return null;
-  const direct = await loadImg(url);
-  if (direct) return direct;
+function corsProxy(url, size = 128) {
+  const clean = url.replace(/^https?:\/\//, "");
+  return `https://images.weserv.nl/?url=${encodeURIComponent(clean)}&w=${size}&h=${size}&fit=inside&output=png`;
+}
+
+async function toDataUrl(url) {
   try {
     const res = await fetch(url, { mode: "cors" });
     if (!res.ok) return null;
     const blob = await res.blob();
-    const dataUrl = await new Promise((resolve) => {
+    return await new Promise((resolve) => {
       const fr = new FileReader();
       fr.onload = () => resolve(fr.result);
       fr.onerror = () => resolve(null);
       fr.readAsDataURL(blob);
     });
-    return dataUrl ? loadImg(dataUrl, 1500) : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Carga un escudo de forma segura para exportar, probando en orden:
+ * 1) el PNG del CDN con CORS,
+ * 2) el mismo PNG a través de un proxy con CORS,
+ * 3) descarga por fetch convertida a data URL,
+ * 4) null → se dibuja el escudo SVG propio con los colores del club.
+ */
+async function loadCrest(url) {
+  if (!url) return null;
+
+  const direct = await loadImg(url, 1500);
+  if (direct) return direct;
+
+  const viaProxy = await loadImg(corsProxy(url), 2500);
+  if (viaProxy) return viaProxy;
+
+  for (const candidate of [url, corsProxy(url)]) {
+    const dataUrl = await toDataUrl(candidate);
+    if (dataUrl) {
+      const img = await loadImg(dataUrl, 1500);
+      if (img) return img;
+    }
+  }
+  return null;
 }
 
 /** Escudo SVG generado con los colores del club (respaldo con aspecto real) */

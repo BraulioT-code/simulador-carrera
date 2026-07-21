@@ -19,6 +19,32 @@ pnpm preview    # sirve el build de producción
 
 ---
 
+## Ranking global (opcional)
+
+El juego funciona 100% offline. Si querés activar el **ranking global** de carreras:
+
+1. Creá un proyecto gratis en [supabase.com](https://supabase.com).
+2. Abrí el **SQL Editor** y ejecutá el contenido de [`supabase/schema.sql`](supabase/schema.sql).
+3. Copiá `.env.example` como `.env` y completá con tus credenciales (Project Settings → API):
+
+```bash
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu-anon-key-publica
+```
+
+4. Reiniciá `pnpm dev`. Aparecen los botones **Ranking global** (pantalla inicial) y **Publicar en el ranking** (al retirarte).
+
+Sin esas variables, los botones simplemente no se muestran y todo lo demás sigue igual.
+
+### Cómo está armado el backend
+
+- **Tabla `careers`** con la carrera publicada: alias, jugador, club final, puntaje, títulos y el detalle de temporadas.
+- **Row Level Security**: lectura pública del ranking, y **ninguna política de insert** — nadie puede escribir directo en la tabla.
+- **`submit_career(payload)`** (función `security definer`) es la única vía de escritura. Antes de insertar valida que la carrera sea coherente: entre 6 y 12 temporadas, edades entre 16 y 38 sin repetir, OVR entre 40 y 99, partidos ≤ 95 por temporada, goles y asistencias dentro de lo humanamente posible, máximo 8 trofeos por temporada y partidos internacionales razonables. Además limita a 10 publicaciones por alias por hora.
+- **El puntaje se recalcula en el servidor** con `legend_score()`, que replica en PL/pgSQL la fórmula de `src/utils/legend.js`. El valor que manda el cliente se ignora, así que editar el JavaScript desde la consola no sirve para inflar el ranking.
+- **Lectura**: el ranking se consulta directo sobre la tabla pidiendo solo las columnas necesarias (sin el detalle pesado de temporadas). Al tocar una carrera se trae el registro completo y se abre la **vista pública de esa carrera** — ficha, totales, vitrina, línea de tiempo temporada por temporada y puntaje de leyenda — igual que la imagen que se comparte.
+- El cliente (`@supabase/supabase-js`) se carga **bajo demanda**: solo se descarga al abrir el ranking o publicar, para no engordar el arranque del juego.
+
 ## Cómo se juega
 
 1. **Definí tu identidad**: apellido, dorsal, pierna hábil, nacionalidad (buscador con banderas) y posición sobre la cancha interactiva. En mobile es un asistente de 3 pasos (Nacionalidad → Identidad → Posición) con barra de progreso; la camiseta de la vista previa usa los colores de la selección del país elegido (`src/data/kits.js`).
@@ -166,7 +192,9 @@ Se calcula por rango de OVR con multiplicadores por edad: ×1.3 hasta los 21, ×
 
 ### Imagen compartible de carrera
 
-Al finalizar la carrera, `src/utils/careerImage.js` dibuja en un canvas (a 2× de resolución) el resumen completo: ficha del jugador, totales, vitrina de trofeos con nombres y la línea de tiempo con colores y escudos de cada club. Usa los mismos SVG de trofeos de la app y los escudos ya cacheados durante la partida, con monogramas de respaldo, para que la exportación nunca falle por imágenes bloqueadas (CORS). El botón **Copiar imagen** la deja en el portapapeles (`navigator.clipboard`); si el navegador no lo permite, se descarga como PNG.
+Al finalizar la carrera, `src/utils/careerImage.js` dibuja en un canvas (a 2× de resolución) el resumen completo: ficha del jugador, totales, vitrina de trofeos con nombres y la línea de tiempo con colores y escudos de cada club, usando los mismos SVG de trofeos de la app.
+
+Para que **todos los escudos** aparezcan (el canvas solo puede exportar imágenes servidas con CORS), cada escudo se intenta cargar en cascada: PNG directo del CDN → el mismo PNG a través de un proxy con CORS (`images.weserv.nl`) → descarga por `fetch` convertida a data URL → y como último recurso un escudo SVG generado con los colores del club. Así la exportación nunca queda con huecos ni falla. El botón **Copiar imagen** la deja en el portapapeles (`navigator.clipboard`); si el navegador no lo permite, se descarga como PNG.
 
 ---
 
@@ -191,6 +219,9 @@ La app es instalable en el celular y funciona offline: `public/manifest.webmanif
 ## Estructura del proyecto
 
 ```
+supabase/
+└── schema.sql                # Tabla, RLS, validación y ranking (backend)
+
 src/
 ├── main.jsx                  # Punto de entrada
 ├── App.jsx                   # Enruta entre Setup y Game según la fase
@@ -202,7 +233,9 @@ src/
 ├── components/
 │   ├── CountUp.jsx           # Números animados + badge de diferencia
 │   ├── TrophyCelebration.jsx # Celebración con fuegos artificiales (canvas)
-│   ├── HallOfFame.jsx        # Listado de carreras terminadas
+│   ├── HallOfFame.jsx        # Listado de carreras terminadas (local)
+│   ├── Leaderboard.jsx       # Ranking global online
+│   ├── PublishCareer.jsx     # Diálogo para publicar tu carrera
 │   ├── JerseyPreview.jsx     # Camiseta SVG con apellido y dorsal en vivo
 │   ├── CountryPicker.jsx     # Buscador de país con lista de 2 columnas
 │   ├── PitchSelector.jsx     # Cancha con las 12 posiciones
@@ -231,6 +264,7 @@ src/
     ├── gameLogic.js          # Stats, ofertas, trofeos, premios, Mundial, salarios
     ├── careerImage.js        # Imagen resumen de la carrera (canvas exportable)
     ├── careerStore.js        # Guardado en localStorage + Salón de la Fama
+    ├── leaderboard.js        # API del ranking global (publicar / consultar)
     ├── legend.js             # Puntaje y título de leyenda
     ├── headlines.js          # Titulares de prensa por temporada
     └── helpers.js            # randInt, clamp, pickWeighted, colores de OVR, valor de mercado
