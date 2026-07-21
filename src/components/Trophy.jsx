@@ -188,6 +188,69 @@ function EotySvg({ size }) {
   );
 }
 
+function AsisSvg({ size }) {
+  // Guante creativo / botín de plata con "A"
+  return (
+    <svg width={size} height={size * 1.25} viewBox="0 0 24 30">
+      <Defs id="tg-silver5" colors={SILVER} />
+      <path
+        d="M6 4 c0 6 1 10 4 12 l8 3.5 c2 .8 3 2 3 3.5 h-16 c-1.5 0 -2.5 -1 -2.5 -2.5 v-14 z"
+        fill="url(#tg-silver5)"
+      />
+      <text x="10.5" y="16" fontSize="7" fontWeight="900" fill="#5c5c66">A</text>
+      <rect x="2" y="24.5" width="20" height="3" rx="1.2" fill="#5c5c66" />
+    </svg>
+  );
+}
+
+function MuroSvg({ size }) {
+  // Escudo defensivo con ladrillos (muro)
+  return (
+    <svg width={size} height={size * 1.25} viewBox="0 0 24 30">
+      <Defs id="tg-steel" colors={["#dfe6ee", "#9fb0c3", "#5a6b7d"]} />
+      <path d="M12 2 l9 3 v9 c0 6 -4 9.5 -9 12 c-5 -2.5 -9 -6 -9 -12 v-9 z" fill="url(#tg-steel)" />
+      <g stroke="#41505f" strokeWidth=".7" opacity=".6">
+        <path d="M4 9 h16 M4 14 h16 M4 19 h14" />
+        <path d="M9 5 v4 M15 9 v5 M9 14 v5 M15 19 v3" />
+      </g>
+    </svg>
+  );
+}
+
+function Gk1Svg({ size }) {
+  // Guante dorado del portero
+  return (
+    <svg width={size} height={size * 1.25} viewBox="0 0 24 30">
+      <Defs id="tg-gold6" colors={GOLD} />
+      <path
+        d="M6 12 V6 c0-2.6 1-4 2.6-4 s2.6 1.4 2.6 4 l1-1.2 c.5-.6 1.4-.2 1.1.6 L12 8.5 M6 12 h9 v9 c0 2 -1 3.5 -3.2 3.5 H8 c-1.2 0 -2 -.9 -2 -2.4 z"
+        fill="url(#tg-gold6)"
+        stroke="#8a6114"
+        strokeWidth=".5"
+      />
+      <path d="M8 6 v4 M10.5 5.5 v4.5 M13 6 v4" stroke="#8a6114" strokeWidth=".6" fill="none" />
+      <rect x="4.5" y="25" width="12" height="2.5" rx="1" fill="#5c5c66" />
+    </svg>
+  );
+}
+
+function GoldenSvg({ size }) {
+  // Estrella naciente (Golden Boy)
+  return (
+    <svg width={size} height={size * 1.25} viewBox="0 0 24 30">
+      <Defs id="tg-gold7" colors={GOLD} />
+      <circle cx="12" cy="11" r="9" fill="url(#tg-gold7)" />
+      <path
+        d="M12 5 l1.8 3.7 4 .6 -2.9 2.8 .7 4 -3.6 -1.9 -3.6 1.9 .7 -4 -2.9 -2.8 4 -.6 z"
+        fill="#8a6114"
+        opacity=".85"
+      />
+      <path d="M8 22 h8 l1 5 h-10 z" fill="url(#tg-gold7)" />
+      <rect x="6" y="26.5" width="12" height="2.5" rx="1" fill="#5c5c66" />
+    </svg>
+  );
+}
+
 const TROPHY_SVGS = {
   liga: LigaSvg,
   copa: CopaSvg,
@@ -197,6 +260,10 @@ const TROPHY_SVGS = {
   continental: ContinentalSvg,
   mvp: MvpSvg,
   eoty: EotySvg,
+  asis: AsisSvg,
+  muro: MuroSvg,
+  gk1: Gk1Svg,
+  golden: GoldenSvg,
 };
 
 /**

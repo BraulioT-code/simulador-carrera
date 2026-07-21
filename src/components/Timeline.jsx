@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AGES, getTeamColor, teamTint } from "../data";
+import { AGES, ALL_COUNTRIES, getTeamColor, teamTint } from "../data";
 import OvrBadge from "./OvrBadge";
 import Trophy from "./Trophy";
 import ClubLogo from "./ClubLogo";
@@ -33,10 +33,14 @@ function StatCell({ icon, value, w = "w-9 lg:w-12", animate = false, delay = 0 }
   );
 }
 
-/** Fila desplegable con las estadísticas de la selección de esa temporada */
-function NationalRow({ nt, natCode, nationality, isGK }) {
+const codeOf = (country) => ALL_COUNTRIES.find((c) => c.n === country)?.c;
+
+/** Fila desplegable: stats de selección, rival de la final y podio del Balón de Oro */
+function NationalRow({ nt, ballonPodium, natCode, nationality, isGK }) {
   return (
-    <div className="mx-2 -mt-0.5 mb-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-b-lg border border-t-0 border-sky-900/40 bg-sky-950/25 px-2.5 py-1.5">
+    <div className="mx-2 -mt-0.5 mb-0.5 rounded-b-lg border border-t-0 border-sky-900/40 bg-sky-950/25 px-2.5 py-1.5">
+      {nt && (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span className="flex items-center gap-1.5 text-[10px] font-black tracking-wide text-sky-300">
         <Flag code={natCode} className="w-4 h-[11px]" />
         {nationality?.toUpperCase()}
@@ -44,11 +48,20 @@ function NationalRow({ nt, natCode, nationality, isGK }) {
       {(nt.comps || []).map((c, i) => (
         <span
           key={i}
-          className="rounded bg-sky-900/50 px-1.5 py-0.5 text-[9px] font-bold text-sky-200"
+          className="flex items-center gap-1 rounded bg-sky-900/50 px-1.5 py-0.5 text-[9px] font-bold text-sky-200"
           title={c.stage || undefined}
         >
           {c.n} <span className="text-white">{c.pj}</span>
-          {c.stage && <span className="ml-1 text-sky-300/70">· {c.stage}</span>}
+          {c.stage && <span className="text-sky-300/70">· {c.stage}</span>}
+          {c.rival && (
+            <>
+              <span className="text-sky-300/70">vs</span>
+              <Flag code={codeOf(c.rival)} className="w-3.5 h-[10px]" />
+              <span className="text-white">{c.rival}</span>
+              {c.won === true && <span className="font-black text-emerald-400">✓</span>}
+              {c.won === false && <span className="font-black text-red-400">✗</span>}
+            </>
+          )}
         </span>
       ))}
       <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-300">
@@ -77,6 +90,30 @@ function NationalRow({ nt, natCode, nationality, isGK }) {
             {nt.ast}
           </span>
         </>
+      )}
+      </div>
+      )}
+
+      {/* Podio del Balón de Oro */}
+      {ballonPodium && (
+        <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${nt ? "mt-1.5 border-t border-sky-900/40 pt-1.5" : ""}`}>
+          <span className="text-[10px] font-black tracking-wide text-amber-400">
+            BALÓN DE ORO
+          </span>
+          {ballonPodium.map((p, i) => (
+            <span
+              key={i}
+              className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                p.you
+                  ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50"
+                  : "bg-zinc-800/70 text-zinc-400"
+              }`}
+            >
+              {i + 1}º {p.name}
+              <span className={p.you ? "text-amber-400/70" : "text-zinc-600"}> · {p.club}</span>
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -115,16 +152,17 @@ export default function Timeline({
           const tint = row ? teamTint(row.team, row.league, 0.18) : "transparent";
 
           const hasNt = !!row?.nt;
-          const open = hasNt && openAge === age;
+          const expandable = hasNt || !!row?.ballonPodium;
+          const open = expandable && openAge === age;
           const isNew = !!row && age === lastAge;
 
           return (
             <div key={age}>
             <div
               className={`flex items-center gap-1.5 rounded-md px-1.5 py-[3px] lg:gap-2 lg:rounded-lg lg:px-2 lg:py-1.5 ${
-                hasNt ? "cursor-pointer" : ""
+                expandable ? "cursor-pointer" : ""
               } ${open ? "rounded-b-none lg:rounded-b-none" : ""}`}
-              onClick={hasNt ? () => setOpenAge(open ? null : age) : undefined}
+              onClick={expandable ? () => setOpenAge(open ? null : age) : undefined}
               style={{
                 background: row
                   ? `linear-gradient(90deg, ${tint}, rgba(19,19,22,.9) 85%)`
@@ -161,12 +199,22 @@ export default function Timeline({
                         <Trophy key={i} type={t.t} name={t.n} size={12} />
                       ))}
                     </span>
-                    {hasNt && (
+                    {expandable && (
                       <span
-                        className="flex shrink-0 items-center gap-1 rounded bg-sky-950/60 px-1 py-0.5 text-[8px] font-black text-sky-300"
-                        title="Ver estadísticas con la selección"
+                        className={`flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[8px] font-black ${
+                          hasNt ? "bg-sky-950/60 text-sky-300" : "bg-amber-950/60 text-amber-300"
+                        }`}
+                        title={
+                          hasNt
+                            ? "Ver estadísticas con la selección"
+                            : "Ver podio del Balón de Oro"
+                        }
                       >
-                        <Flag code={natCode} className="w-3 h-[8px]" />
+                        {hasNt ? (
+                          <Flag code={natCode} className="w-3 h-[8px]" />
+                        ) : (
+                          <span aria-hidden>●</span>
+                        )}
                         <svg
                           width="7"
                           height="7"
@@ -228,6 +276,7 @@ export default function Timeline({
             {open && (
               <NationalRow
                 nt={row.nt}
+                ballonPodium={row.ballonPodium}
                 natCode={natCode}
                 nationality={nationality}
                 isGK={isGK}

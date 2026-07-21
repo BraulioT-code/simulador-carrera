@@ -12,6 +12,10 @@ const TROPHY_POINTS = {
   mundial: 18,
   ballon: 14,
   bota: 7,
+  asis: 6,
+  muro: 6,
+  gk1: 6,
+  golden: 5,
   mvp: 5,
   eoty: 3,
 };
@@ -46,8 +50,8 @@ export function legendScore({ player, history }) {
   // Longevidad (máx 10): 900 partidos = tope
   const longPts = clamp((pj / 900) * 10, 0, 10);
 
-  // Selección (máx 8)
-  const capsPts = clamp(((player.intCaps || 0) / 60) * 8, 0, 8);
+  // Selección (máx 6): los caps ayudan, pero no definen una leyenda por sí solos
+  const capsPts = clamp(((player.intCaps || 0) / 70) * 6, 0, 6);
 
   const total = Math.round(trophyPts + peakPts + prodPts + longPts + capsPts);
   return clamp(total, 0, 100);

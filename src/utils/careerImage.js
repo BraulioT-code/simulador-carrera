@@ -199,6 +199,26 @@ function trophySvg(type, gold = false) {
       return `${open}${gradDef(SILVER)}
         <path d='M12 2 l9 3 v9 c0 6 -4 9.5 -9 12 c-5 -2.5 -9 -6 -9 -12 v-9 z' fill='url(#g)'/>
         <path d='M12 9 l1.7 3.5 3.8.5 -2.75 2.7 .65 3.8 -3.4 -1.8 -3.4 1.8 .65 -3.8 -2.75 -2.7 3.8 -.5 z' fill='#52525b' opacity='.7'/>${close}`;
+    case "asis":
+      return `${open}${gradDef(SILVER)}
+        <path d='M6 4 c0 6 1 10 4 12 l8 3.5 c2 .8 3 2 3 3.5 h-16 c-1.5 0 -2.5 -1 -2.5 -2.5 v-14 z' fill='url(#g)'/>
+        <text x='10.5' y='16' font-size='7' font-weight='900' fill='#5c5c66' font-family='Arial'>A</text>
+        <rect x='2' y='24.5' width='20' height='3' rx='1.2' fill='#5c5c66'/>${close}`;
+    case "muro":
+      return `${open}<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#dfe6ee'/><stop offset='.55' stop-color='#9fb0c3'/><stop offset='1' stop-color='#5a6b7d'/></linearGradient></defs>
+        <path d='M12 2 l9 3 v9 c0 6 -4 9.5 -9 12 c-5 -2.5 -9 -6 -9 -12 v-9 z' fill='url(#g)'/>
+        <g stroke='#41505f' stroke-width='.7' opacity='.6'><path d='M4 9 h16 M4 14 h16 M4 19 h14'/><path d='M9 5 v4 M15 9 v5 M9 14 v5 M15 19 v3'/></g>${close}`;
+    case "gk1":
+      return `${open}${gradDef(GOLD)}
+        <path d='M6 12 V6 c0-2.6 1-4 2.6-4 s2.6 1.4 2.6 4 l1-1.2 c.5-.6 1.4-.2 1.1.6 L12 8.5 M6 12 h9 v9 c0 2 -1 3.5 -3.2 3.5 H8 c-1.2 0 -2 -.9 -2 -2.4 z' fill='url(#g)' stroke='#8a6114' stroke-width='.5'/>
+        <path d='M8 6 v4 M10.5 5.5 v4.5 M13 6 v4' stroke='#8a6114' stroke-width='.6' fill='none'/>
+        <rect x='4.5' y='25' width='12' height='2.5' rx='1' fill='#5c5c66'/>${close}`;
+    case "golden":
+      return `${open}${gradDef(GOLD)}
+        <circle cx='12' cy='11' r='9' fill='url(#g)'/>
+        <path d='M12 5 l1.8 3.7 4 .6 -2.9 2.8 .7 4 -3.6 -1.9 -3.6 1.9 .7 -4 -2.9 -2.8 4 -.6 z' fill='#8a6114' opacity='.85'/>
+        <path d='M8 22 h8 l1 5 h-10 z' fill='url(#g)'/>
+        <rect x='6' y='26.5' width='12' height='2.5' rx='1' fill='#5c5c66'/>${close}`;
     case "continental":
       return `${open}${gradDef(gold ? GOLD : SILVER)}
         <path d='M5.5 4 C0.5 4 0.5 13 6.5 14 M18.5 4 C23.5 4 23.5 13 17.5 14' fill='none' stroke='url(#g)' stroke-width='2.4' stroke-linecap='round'/>

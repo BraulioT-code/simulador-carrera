@@ -14,6 +14,9 @@ import {
   getDebutOffers,
   generateTrophies,
   generateAwards,
+  AWARD_BOOSTS,
+  pickFinalRival,
+  generateBallonPodium,
   calculateOvrDelta,
   shouldRetire,
   evaluateSeason,
@@ -90,11 +93,13 @@ export default function useCareerGame() {
   };
 
   /**
-   * Resuelve una final de selección.
+   * Resuelve una final de selección contra un rival concreto.
    * La mitad de las finales se definen desde el punto del penal (evento jugable);
    * la otra mitad se simula directamente, con un 50/50 de ganar el título.
    */
-  const resolveFinal = (hist, p, trophy, base = {}) => {
+  const resolveFinal = (hist, p, trophy, base = {}, finalInfo = null) => {
+    const vsTxt = finalInfo?.rival ? ` contra ${finalInfo.rival}` : "";
+
     if (Math.random() < 0.5) {
       update({
         ...base,
@@ -104,8 +109,9 @@ export default function useCareerGame() {
         event: {
           type: "penal",
           title: "Penal decisivo",
-          desc: `Te toca definir la final de la ${trophy.n}.`,
+          desc: `Te toca definir la final de la ${trophy.n}${vsTxt}.`,
           trophy,
+          finalInfo,
           choices: [
             { label: "Izquierda", eff: "penalty" },
             { label: "Derecha", eff: "penalty" },
@@ -117,6 +123,10 @@ export default function useCareerGame() {
     }
 
     const won = Math.random() < 0.5;
+    const histResolved = finalInfo
+      ? setCompResult(hist, finalInfo.compName, won)
+      : hist;
+
     update({
       ...base,
       player: won
@@ -126,22 +136,36 @@ export default function useCareerGame() {
             morale: clamp(p.morale + 10, 0, 100),
           }
         : { ...p, morale: clamp(p.morale - 6, 0, 100) },
-      history: won ? awardTrophy(hist, trophy) : hist,
+      history: won ? awardTrophy(histResolved, trophy) : histResolved,
       celebration: won ? trophy : null,
       message: won
-        ? `¡Campeones de la ${trophy.n}!`
-        : `Subcampeones: se escapó la final de la ${trophy.n}`,
+        ? `¡Campeones de la ${trophy.n}! Vencieron a ${finalInfo?.rival || "un gran rival"} en la final`
+        : `Subcampeones: ${finalInfo?.rival || "el rival"} se quedó con la final de la ${trophy.n}`,
       offers: getOffers(3, p.team, base.offerWin ?? offerWin),
       phase: PHASES.TRANSFER,
     });
   };
 
   /** Suma los partidos de un torneo de selección a la última temporada */
-  const addCompetition = (hist, p, name, pj, stage) => {
+  const addCompetition = (hist, p, name, pj, stage, extra = {}) => {
     if (!hist.length) return hist;
     const copy = [...hist];
     const last = { ...copy[copy.length - 1] };
-    last.nt = addNationalCompetition(last.nt, p, name, pj, stage);
+    last.nt = addNationalCompetition(last.nt, p, name, pj, stage, extra);
+    copy[copy.length - 1] = last;
+    return copy;
+  };
+
+  /** Marca el resultado de la final (ganada/perdida) en la competencia */
+  const setCompResult = (hist, compName, won) => {
+    if (!hist.length || !compName) return hist;
+    const copy = [...hist];
+    const last = { ...copy[copy.length - 1] };
+    if (!last.nt?.comps) return hist;
+    last.nt = {
+      ...last.nt,
+      comps: last.nt.comps.map((c) => (c.n === compName ? { ...c, won } : c)),
+    };
     copy[copy.length - 1] = last;
     return copy;
   };
@@ -200,7 +224,9 @@ export default function useCareerGame() {
   );
 
   const simulate = useCallback(() => {
-    if (!player) return;
+    // Solo se puede simular en fase PLAYING: evita que un doble clic (o un
+    // estado inconsistente) procese dos veces la misma temporada.
+    if (!player || phase !== PHASES.PLAYING) return;
 
     const stats = generateStats(player.position, player.overall, player.age);
     // Minutos reducidos por decisiones de eventos (ej: conflicto con el DT)
@@ -209,9 +235,30 @@ export default function useCareerGame() {
     }
     const season = evaluateSeason(player, stats);
     const trophies = [
-      ...generateTrophies(player),
-      ...generateAwards(player, stats, season.rating),
+      ...generateTrophies(player, stats, season.rating),
+      ...generateAwards(player, stats, season.rating, player.age),
     ];
+
+    // Boost por premios individuales ganados esta temporada
+    const boost = trophies.reduce(
+      (acc, t) => {
+        const b = AWARD_BOOSTS[t.t];
+        if (b) {
+          acc.ovr += b.ovr || 0;
+          acc.rep += b.rep || 0;
+          acc.morale += b.morale || 0;
+        }
+        return acc;
+      },
+      { ovr: 0, rep: 0, morale: 0 }
+    );
+
+    // Podio del Balón de Oro (si lo ganaste, o si te colaste 2º/3º)
+    const ballonPodium = generateBallonPodium(
+      player,
+      season.rating,
+      trophies.some((t) => t.t === "ballon" && t.n === "Balón de Oro")
+    );
 
     // Ciclo con la selección: eliminatorias + amistosos (los torneos se suman al resolverse)
     const region = regionOf(player.nationality);
@@ -219,7 +266,12 @@ export default function useCareerGame() {
     const clubRating = getClubRating(player.team, player.league);
     // Tiene en cuenta OVR, minutos, goles y asistencias de la temporada
     const window = offerWindow(clubRating, season, player, stats);
-    const hasNT = (player.intCaps || 0) > 0;
+    // Convocatoria automática por mérito: un titular consolidado (OVR ≥ 72)
+    // con una temporada sólida (nota ≥ 6.5) empieza a ser tenido en cuenta por
+    // su selección, aunque nunca haya salido el evento de convocatoria.
+    const firstCallUp =
+      (player.intCaps || 0) === 0 && player.overall >= 72 && season.rating >= 6.5;
+    const hasNT = (player.intCaps || 0) > 0 || firstCallUp;
     const nt = hasNT ? generateNationalStats(player, region) : null;
 
     const seasonHeadline = generateHeadline({
@@ -246,12 +298,13 @@ export default function useCareerGame() {
         rating: season.rating,
         headline: seasonHeadline,
         nt,
+        ballonPodium,
         trophies,
       },
     ];
 
-    // El crecimiento de OVR depende de la edad y del rendimiento de la temporada
-    const delta = calculateOvrDelta(player.age, season.rating);
+    // El crecimiento de OVR depende de la edad, el rendimiento y los premios
+    const delta = calculateOvrDelta(player.age, season.rating) + boost.ovr;
     const newOvr = clamp(player.overall + delta, 40, 99);
     const newAge = player.age + 2;
     const salary = player.salary || estimateSalary(player);
@@ -260,7 +313,8 @@ export default function useCareerGame() {
       ...player,
       overall: newOvr,
       age: newAge,
-      reputation: clamp(player.reputation + randInt(2, 8), 0, 100),
+      reputation: clamp(player.reputation + randInt(2, 8) + boost.rep, 0, 100),
+      morale: clamp((player.morale || 70) + boost.morale, 0, 100),
       contractYears: player.contractYears - 1,
       pjPenalty: null,
       intCaps: (player.intCaps || 0) + (nt?.caps || 0),
@@ -306,7 +360,9 @@ export default function useCareerGame() {
       player: updatedPlayer,
       history: newHistory,
       canStay: season.good,
-      message: "",
+      message: firstCallUp
+        ? `¡Primera convocatoria a la selección de ${player.nationality}!`
+        : "",
       headline: seasonHeadline,
       celebration: celebrate,
       offerWin: window,
@@ -314,10 +370,22 @@ export default function useCareerGame() {
 
     const cupName = nationalCupName(player.nationality);
 
-    // Mundial cada 4 años (18, 22, 26…) si tenés partidos con la selección
-    if (isWorldCupYear(player.age) && hasNT) {
+    // Mundial: disponible desde los 18 hasta el retiro, con la regla de que
+    // NUNCA puede haber menos de 4 años entre un Mundial y el siguiente.
+    // - Sin Mundiales jugados: se ancla al calendario (18, 22, 26…).
+    // - Con un Mundial jugado: el próximo es exactamente 4+ años después del
+    //   último, aunque el estado venga de una partida vieja o desincronizada.
+    const canPlayWC =
+      hasNT &&
+      player.age >= 18 &&
+      (player.lastWC == null
+        ? isWorldCupYear(player.age)
+        : player.age - player.lastWC >= 4);
+
+    if (canPlayWC) {
       update({
         ...base,
+        player: { ...updatedPlayer, lastWC: player.age },
         event: {
           type: "worldcup",
           title: "Copa del Mundo",
@@ -336,18 +404,49 @@ export default function useCareerGame() {
       return;
     }
 
-    // Copa continental en los años intermedios (20, 24, 28…)
-    if (isContinentalCupYear(player.age) && hasNT) {
+    // Copa continental (Copa América, Eurocopa…): en la realidad el intervalo
+    // varía (2, 3 o 4 años). Acá:
+    // - Sin copas jugadas: se ancla a los años intermedios (20, 24, 28…).
+    // - Con una jugada: la próxima llega según el intervalo sorteado (2 o 4
+    //   años, ya que las temporadas avanzan de a 2), nunca antes.
+    const canPlayCC =
+      hasNT &&
+      player.age >= 18 &&
+      (player.lastCC == null
+        ? isContinentalCupYear(player.age)
+        : player.age - player.lastCC >= (player.ccGap ?? 4));
+
+    if (canPlayCC) {
       const run = resolveTournamentRun(player, continentalCupType(region));
-      const histWithCup = addCompetition(newHistory, updatedPlayer, cupName, run.matches, run.stage);
+      const playerAfterCup = {
+        ...updatedPlayer,
+        lastCC: player.age,
+        ccGap: Math.random() < 0.45 ? 2 : 4,
+      };
+      const rival = run.isFinal ? pickFinalRival(region, player.nationality) : null;
+      const histWithCup = addCompetition(
+        newHistory,
+        playerAfterCup,
+        cupName,
+        run.matches,
+        run.stage,
+        rival ? { rival } : {}
+      );
 
       if (run.isFinal) {
-        resolveFinal(histWithCup, updatedPlayer, { t: "continental", n: cupName }, base);
+        resolveFinal(
+          histWithCup,
+          playerAfterCup,
+          { t: "continental", n: cupName },
+          base,
+          { compName: cupName, rival }
+        );
         return;
       }
 
       update({
         ...base,
+        player: playerAfterCup,
         history: histWithCup,
         message: `${cupName}: tu selección quedó eliminada en ${run.stage.toLowerCase()}`,
         offers: getOffers(3, player.team, window),
@@ -433,7 +532,9 @@ export default function useCareerGame() {
     } else {
       update({ ...base, offers: getOffers(3, player.team, window), phase: PHASES.TRANSFER });
     }
-  }, [player, history, firstClub]);
+    // "phase" debe estar en las dependencias: el guard de arriba la usa, y sin
+    // esto el botón quedaba muerto tras "Quedarse en tu club" (fase capturada vieja)
+  }, [player, history, firstClub, phase]);
 
   const handleChoice = useCallback(
     (choice) => {
@@ -478,10 +579,21 @@ export default function useCareerGame() {
           intCaps: (player.intCaps || 0) + run.matches,
           reputation: clamp(player.reputation + 6, 0, 100),
         };
-        const hist = addCompetition(history, p, "Copa del Mundo", run.matches, run.stage);
+        const rival = run.isFinal ? pickFinalRival("wc", player.nationality) : null;
+        const hist = addCompetition(
+          history,
+          p,
+          "Copa del Mundo",
+          run.matches,
+          run.stage,
+          rival ? { rival } : {}
+        );
 
         if (run.isFinal) {
-          resolveFinal(hist, p, { t: "mundial", n: "Copa del Mundo" });
+          resolveFinal(hist, p, { t: "mundial", n: "Copa del Mundo" }, {}, {
+            compName: "Copa del Mundo",
+            rival,
+          });
           return;
         }
 
@@ -499,6 +611,11 @@ export default function useCareerGame() {
       if (eff === "penalty") {
         const scored = Math.random() < 0.65;
         const trophy = event?.trophy;
+        const finalInfo = event?.finalInfo;
+        const rivalTxt = finalInfo?.rival ? ` ante ${finalInfo.rival}` : "";
+        const histResolved = finalInfo
+          ? setCompResult(history, finalInfo.compName, scored)
+          : history;
 
         if (scored) {
           const p = {
@@ -509,10 +626,10 @@ export default function useCareerGame() {
           };
           update({
             player: p,
-            history: trophy ? awardTrophy(history, trophy) : history,
+            history: trophy ? awardTrophy(histResolved, trophy) : histResolved,
             celebration: trophy || null,
             message: trophy
-              ? `¡GOL! Campeones de la ${trophy.n}`
+              ? `¡GOL! Campeones de la ${trophy.n}${rivalTxt}`
               : "¡GOL! Definiste la final y sos leyenda nacional",
             offers: getOffers(3, player.team, offerWin),
             phase: PHASES.TRANSFER,
@@ -524,7 +641,8 @@ export default function useCareerGame() {
               reputation: clamp(player.reputation - 8, 0, 100),
               morale: clamp(player.morale - 10, 0, 100),
             },
-            message: "El arquero adivinó… fallaste el penal decisivo",
+            history: histResolved,
+            message: `El arquero adivinó… fallaste el penal decisivo${rivalTxt}`,
             offers: getOffers(3, player.team, offerWin),
             phase: PHASES.TRANSFER,
           });

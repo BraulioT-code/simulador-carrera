@@ -20,6 +20,10 @@ export const TROPHY_NAMES = {
   continental: "Torneo continental",
   mvp: "MVP",
   eoty: "Equipo del Año",
+  asis: "Rey de Asistencias",
+  muro: "Mejor Defensa",
+  gk1: "Portero del Año",
+  golden: "Revelación del Año",
 };
 
 export const PHASES = {

@@ -92,6 +92,7 @@ export async function submitCareer({ alias, player, history, natData }) {
       team: h.team,
       league: h.league,
       nt: h.nt || null,
+      ballonPodium: h.ballonPodium || null,
       trophies: h.trophies || [],
     })),
   };

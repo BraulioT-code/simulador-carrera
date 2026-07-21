@@ -100,16 +100,15 @@ Calibración simulada (3000 temporadas por caso): entre 60% y 77% de las tempora
 
 **Los 372 clubes** tienen un ranking propio de 0 a 100 (`src/data/clubRatings.js`), agrupado por liga y ordenado de mayor a menor, inspirado en los rankings mundiales de clubes (coeficientes UEFA/Opta en Europa, ranking CONMEBOL en Sudamérica): Real Madrid 96, Barcelona 95, Man. City 94, Bayern 93, Palmeiras 85, Flamengo 84, River 82, Boca 81, Millonarios 72, Leeds 74, Cortuluá 37… Así cualquier oferta tiene un nivel definido y comparable entre torneos.
 
-La ventana de clubes interesados (`offerWindow`) tiene en cuenta **todo el desempeño**, no solo la nota:
+Las ofertas se rigen por tu **nivel real (OVR)**, no por el club en el que estés (`offerWindow`): un crack que la rompe en una segunda división recibe ofertas de clubes de su categoría, no de la segunda.
 
-- **Tu club actual** como punto de partida, y **tu OVR**: si el nivel del club te queda chico, clubes de tu categoría real se fijan en vos.
-- **La nota de la temporada** (±9 puntos de ranking).
-- **Producción**: 30+ goles, 25+ asistencias o un promedio de 0.85 aportes por partido suman 6 puntos; 20+ goles suman 3.5; casi no aportar jugando seguido resta 4. Para arqueros cuenta el porcentaje de vallas invictas.
-- **Minutos**: jugar el 90% suma 2; menos del 45% resta 6.
-- **Escalones**: el salto máximo es de +20 de ranking por temporada — las carreras se construyen por pasos, nadie va de la segunda colombiana a la élite en un año.
-- **Sin renovación**: el tope siempre queda al menos 3 puntos por debajo de tu club actual.
+- **Techo = tu OVR + la proyección de la temporada**: excepcional (nota ≥ 9) suma hasta +6 de ranking sobre tu OVR; muy buena (≥ 8) +4; buena (≥ 7) +2; correcta +1; mediocre 0.
+- **Números de crack** empujan un poco más arriba: 35+ goles o 0.85 aportes/partido +2; 22+ goles o 18+ asistencias +1 (vallas invictas para arqueros).
+- **Nunca peor que tu club actual**: al renovar, el techo nunca baja del ranking de tu club, así que no retrocedés de categoría sin querer.
+- **Suplencia** (menos del 50% de los minutos): el mercado te mira desde abajo (bonus −3, piso más bajo).
+- **Sin renovación**: el tope queda 3 puntos por debajo de tu club actual — solo clubes menores.
 
-Ejemplos reales de la simulación: con 32 goles y OVR 78 en Millonarios (72) te buscan Man. City, Atlético y Aston Villa; con una temporada normal, Peñarol o Rosario Central; de suplente sin goles, Bastia o Modena. Y desde el Barcelona con un año perdido, aparecen Zürich o Alavés.
+Esto corrige el caso donde un jugador de OVR 81 quedaba atrapado en la segunda colombiana toda su carrera: ahora un crack de segunda (rank ~38) con gran temporada recibe ofertas de clubes de 75-89 y da el salto a Europa, mientras que un juvenil de OVR 55 sigue recibiendo ofertas acordes a su nivel real.
 
 Cada tarjeta de oferta muestra un chip con el ranking del club y una flecha verde/roja según sea un paso adelante o atrás. Si ya estás en la élite (90+), los grandes siguen interesados aunque no haya nada por encima.
 
@@ -122,12 +121,21 @@ Cada trofeo se guarda con su **nombre específico** y se dibuja como SVG (sin em
 | Liga | El nombre real de la liga: "Liga BetPlay", "Premier League", "Ligue 1"… | Salir campeón |
 | Copa nacional | "FA Cup", "Copa del Rey", "DFB-Pokal", "Copa Colombia"… | Top 3 + 25% de probabilidad |
 | Continental | "Champions League" (Europa), "Copa Libertadores" (Sudamérica), "Concachampions", etc. según la región de la liga | Pelear el título en primera división; probabilidad según OVR y prestigio |
-| Balón de Oro | "Balón de Oro" | OVR ≥ 85, 8% |
-| Bota de Oro | "Bota de Oro" | OVR ≥ 88, 12% |
+| Balón de Oro | "Balón de Oro" | OVR ≥ 85 **y** temporada con nota ≥ 7.5 |
+| Bota de Oro | "Bota de Oro" | Es para el **máximo goleador**: exige 45+ goles en el bloque (~22 por temporada) |
 | Mundial | "Copa del Mundo" | Ganar el Mundial (ver abajo) |
-| MVP / Guante de Oro | "MVP de la Premier League" | Nota ≥ 8.5 y nivel acorde a la liga |
+| MVP | "MVP de la Premier League" | Nota ≥ 8.5 y nivel acorde a la liga |
 | Equipo del Año | "Equipo del Año · La Liga" | Nota ≥ 7.5 |
-| Goleador | "Goleador de la Serie A" | 25+ goles en la temporada |
+| Goleador | "Goleador de la Serie A" | 40+ goles en el bloque (delanteros) |
+| **Rey de Asistencias** | "Rey de Asistencias · La Liga" | 28+ asistencias (creativos: MCO, MC, extremos) |
+| **Mejor Defensa** | "Mejor Defensa · Serie A" | Nota ≥ 7.8 jugando 75%+ (zagueros y laterales) |
+| **Portero del Año** | "Portero del Año · Bundesliga" | Nota ≥ 7.8 y 42%+ de vallas invictas (arqueros) |
+| **Guante de Oro** | "Guante de Oro · Ligue 1" | 34%+ de vallas invictas (arqueros) |
+| **Revelación del Año** | "Revelación del Año" | ≤ 22 años, nota ≥ 8.2 y OVR ≥ 72 |
+
+Cada premio individual otorga un **boost** al ganarlo (`AWARD_BOOSTS`): el Balón de Oro da +2 OVR, +15 reputación y +12 moral; la Bota de Oro, Rey de Asistencias, Mejor Defensa, Portero del Año y Revelación dan +1 OVR (la Revelación +2) y reputación; MVP y Guante de Oro +1 OVR; Equipo del Año solo reputación. Así cada posición tiene una vía propia de crecimiento acelerado, no solo los goleadores.
+
+La producción por temporada usa **perfiles por posición** (`POSITION_PROFILE` en `gameLogic.js`): un delantero centro promedia 0.60 goles por partido escalados por su nivel, un extremo 0.42 con más asistencias, un MCO reparte juego, un DFC casi no marca. La curva de habilidad crece más rápido en la élite (potencia 1.55 + prima de estrella hasta +35% de 88 a 99), así que los cracks producen como cracks: un DC que llega a la élite termina con **mediana de ~380 goles de carrera** y las leyendas superan los 500 (máximos cerca de 800, territorio Ronaldo/Messi). La variación anual va de 0.55× (año flojo) a 1.45× (año enorme). La evaluación de renovación compara contra la media esperada de ese mismo perfil.
 
 ### Animación de la simulación
 
@@ -149,7 +157,12 @@ Al ganar cualquier título aparece una **celebración a pantalla completa**: el 
 
 ### Mundial y selección
 
-Aceptar la convocatoria a la selección desbloquea el circuito internacional:
+Hay dos vías para entrar al circuito internacional:
+
+- **Convocatoria automática por mérito**: apenas sos un titular consolidado (OVR ≥ 72) con una temporada sólida (nota ≥ 6.5), tu selección te llama, aunque nunca haya salido el evento. Así casi ninguna carrera buena se queda sin jugar con su país (solo ~2% de journeymen que nunca se afianzan).
+- **Evento "Selección Nacional"**: puede convocarte antes, incluso siendo joven.
+
+Una vez dentro:
 
 - **Mundial** cada 4 años de carrera (18, 22, 26, 30, 34, 38). El resultado depende de tu OVR y reputación: campeón directo, final (que se define por penal), semis, cuartos o fase de grupos.
 - **Finales**: si tu selección llega a la final, la mitad de las veces se define desde el punto del penal (evento jugable: elegís palo, 65% de convertir) y la otra mitad se simula directamente con un 50/50. En ambos casos, ganar suma el trofeo a tu vitrina y a la temporada correspondiente, con su celebración.
@@ -168,9 +181,26 @@ Desde que aceptás tu primera convocatoria, cada temporada (bloque de 2 años) g
 | Eliminatorias Concacaf / AFC / CAF | según ronda (3-8 por bloque) |
 | Amistosos | 2-5 por bloque |
 
-Los torneos alternan igual que en la realidad: **Mundial** a los 18, 22, 26, 30, 34 y 38, y la **copa continental** de tu confederación a los 20, 24, 28, 32 y 36. Hasta dónde llega tu selección depende de tu OVR y reputación; si llegás a la final, se define por el penal decisivo.
+Los torneos alternan igual que en la realidad, con intervalos mínimos garantizados por jugador (`lastWC` / `lastCC` en el estado):
 
-En la línea de tiempo, las temporadas con selección muestran un chip con tu bandera: al tocarlo se despliega una sub-fila con el desglose (`Copa América 6 · Cuartos`, `Eliminatorias 9`, `Amistosos 3`) y los goles/asistencias internacionales. La barra de estadísticas muestra tres filas: **clubes**, **selección** y **total**, y ese desglose también aparece en la imagen compartible.
+- **Mundial**: el primero se ancla al calendario (18, 22, 26…); a partir de ahí el siguiente llega **como mínimo 4 años después del último que jugaste**, sin excepción — nunca puede haber dos Mundiales con menos de 4 años de diferencia, aunque la partida venga de un guardado viejo o algo re-simule una temporada.
+- **Copa continental**: la primera se ancla a los años intermedios (20, 24…); después el intervalo se sortea entre 2 y 4 años, como pasa en la realidad con la Copa América, y nunca puede repetirse antes del intervalo. Si coincide con un año de Mundial, se corre al bloque siguiente.
+
+Hasta dónde llega tu selección depende sobre todo de la **fuerza de tu país** (`NATIONAL_STRENGTH` en `gameLogic.js`, 0-100 según el pedigrí real) y en menor medida de tu nivel individual. Elegir la nacionalidad al crear el jugador ahora define tu destino internacional. Si llegás a la final, la mitad de las veces se define por el penal decisivo y la otra mitad se simula (50/50).
+
+Probabilidad de ganar **al menos un Mundial en toda la carrera** (jugador que llega a crack, ~4 Mundiales), verificada con 40.000 simulaciones por selección:
+
+| Confederación | Selecciones y probabilidad |
+|---------------|----------------------------|
+| Sudamérica | Brasil 47% · Argentina 41% · Uruguay 10% · Colombia 6% · Chile 3% |
+| Europa | Francia 43% · España 38% · Alemania 35% · Inglaterra 27% · Italia 22% |
+| Concacaf | México 4% · EE.UU. 3% · Canadá 2% · Costa Rica 1% · Panamá 0.4% |
+| Asia | Japón 4% · Corea del Sur 3% · Australia 2% · Arabia Saudita 2% · Irán 2% |
+| África | Marruecos 6% · Senegal 4% · Nigeria 3% · Costa de Marfil 2% · Egipto 2% |
+
+El nivel del jugador matiza esa base pero no la reemplaza: un crack de Brasil ronda el 47%, uno promedio el 32%; en cambio ni un OVR 92 lleva a Panamá más allá del ~1% — un solo jugador no gana un Mundial solo. Además, `simulate` ahora solo corre en fase de juego: un doble clic en "Simular Temporada" ya no puede procesar dos veces la misma temporada.
+
+En la línea de tiempo, las temporadas con selección muestran un chip con tu bandera: al tocarlo se despliega una sub-fila con el desglose (`Copa América 6 · Cuartos`, `Eliminatorias 9`, `Amistosos 3`) y los goles/asistencias internacionales. Cuando el ciclo terminó en **final**, el chip muestra también el rival (sorteado entre las potencias de la confederación — Brasil, Francia, México… según el torneo) con ✓ verde si la ganaste o ✗ roja si la perdiste. Y en las temporadas con podio del **Balón de Oro**, el desplegable muestra el top 3: si lo ganaste aparecés primero sobre dos estrellas generadas (nombres ficticios con clubes de élite), y en temporadas enormes sin premio podés colarte 2º o 3º. La barra de estadísticas muestra tres filas: **clubes**, **selección** y **total**, y ese desglose también aparece en la imagen compartible.
 
 ### Puntaje de leyenda
 
