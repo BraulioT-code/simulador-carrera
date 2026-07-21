@@ -96,49 +96,63 @@ export async function submitCareer({ alias, player, history, natData }) {
     })),
   };
 
-  const sb = await getSupabase();
-  if (!sb) return { ok: false, error: "No se pudo conectar con el servidor" };
+  try {
+    const sb = await getSupabase();
+    const { data, error } = await sb.rpc("submit_career", { payload });
 
-  const { data, error } = await sb.rpc("submit_career", { payload });
+    if (error) {
+      console.error("[leaderboard] submit_career:", error);
+      return { ok: false, error: error.message || "Error del servidor" };
+    }
 
-  if (error) {
-    return { ok: false, error: error.message };
+    markPublished(careerKey(player, history));
+    saveAlias(alias.trim());
+    return { ok: true, career: data };
+  } catch (err) {
+    console.error("[leaderboard] submit:", err);
+    return { ok: false, error: err?.message || "No se pudo conectar con el servidor" };
   }
-
-  markPublished(careerKey(player, history));
-  saveAlias(alias.trim());
-  return { ok: true, career: data };
 }
 
 /** Carrera completa de una publicación del ranking (incluye temporadas) */
 export async function fetchCareer(id) {
   if (!isBackendEnabled) return { ok: false, error: "no-config", career: null };
 
-  const sb = await getSupabase();
-  if (!sb) return { ok: false, error: "sin-conexión", career: null };
-
-  const { data, error } = await sb.from("careers").select("*").eq("id", id).single();
-  if (error) return { ok: false, error: error.message, career: null };
-  return { ok: true, career: data };
+  try {
+    const sb = await getSupabase();
+    const { data, error } = await sb.from("careers").select("*").eq("id", id).single();
+    if (error) return { ok: false, error: error.message, career: null };
+    return { ok: true, career: data };
+  } catch (err) {
+    console.error("[leaderboard] detalle:", err);
+    return { ok: false, error: err?.message || "sin conexión", career: null };
+  }
 }
 
 /** Top del ranking global */
 export async function fetchTopCareers(limit = 50) {
   if (!isBackendEnabled) return { ok: false, error: "no-config", careers: [] };
 
-  const sb = await getSupabase();
-  if (!sb) return { ok: false, error: "sin-conexión", careers: [] };
+  try {
+    const sb = await getSupabase();
 
-  // Sin el detalle de temporadas: se pide solo al abrir una carrera
-  const { data, error } = await sb
-    .from("careers")
-    .select(
-      "id, alias, player_name, nationality, position, number, club, league, score, title, peak_ovr, pj, gls, ast, int_caps, earnings, trophies, created_at"
-    )
-    .order("score", { ascending: false })
-    .order("created_at", { ascending: true })
-    .limit(Math.min(Math.max(limit, 1), 100));
+    // Sin el detalle de temporadas: se pide solo al abrir una carrera
+    const { data, error } = await sb
+      .from("careers")
+      .select(
+        "id, alias, player_name, nationality, position, number, club, league, score, title, peak_ovr, pj, gls, ast, int_caps, earnings, trophies, created_at"
+      )
+      .order("score", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(Math.min(Math.max(limit, 1), 100));
 
-  if (error) return { ok: false, error: error.message, careers: [] };
-  return { ok: true, careers: data || [] };
+    if (error) {
+      console.error("[leaderboard] top:", error);
+      return { ok: false, error: error.message, careers: [] };
+    }
+    return { ok: true, careers: data || [] };
+  } catch (err) {
+    console.error("[leaderboard] top:", err);
+    return { ok: false, error: err?.message || "sin conexión", careers: [] };
+  }
 }
