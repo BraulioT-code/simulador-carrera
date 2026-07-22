@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AGES as AGES_DEFAULT, ALL_COUNTRIES, getTeamColor, teamTint } from "../data";
 import OvrBadge from "./OvrBadge";
 import Trophy from "./Trophy";
@@ -197,10 +197,39 @@ export default function Timeline({
   natCode,
   nationality,
   ages,
+  fillHeight = false,
+  showAll = false,
 }) {
   const AGES = ages ?? AGES_DEFAULT;
   const [openAge, setOpenAge] = useState(null);
   const lastAge = history.length ? history[history.length - 1].age : null;
+
+  // showAll: carrera terminada → todos los ages sin ventana.
+  // Normal: ventana de 7 anclada al age actual.
+  const WINDOW = 7;
+  const curIdx = currentAge != null ? AGES.indexOf(currentAge) : -1;
+  const anchorIdx = curIdx !== -1 ? curIdx : AGES.length - 1;
+  const endIdx = Math.min(AGES.length, anchorIdx + 2);
+  const startIdx = Math.max(0, endIdx - WINDOW);
+  const visibleAges = showAll ? AGES : AGES.slice(startIdx, startIdx + WINDOW);
+  const scrollRef = useRef(null);
+  const anchorRef = useRef(null);
+
+  // En mobile: scroll al final de las filas rellenas cada vez que cambia el historial
+  useEffect(() => {
+    const el = scrollRef.current;
+    const anchor = anchorRef.current;
+    if (!el) return;
+    // Deja un pequeño delay para que el render de la nueva fila termine
+    const t = setTimeout(() => {
+      if (anchor) {
+        anchor.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else {
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 80);
+    return () => clearTimeout(t);
+  }, [history.length, currentAge]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -227,8 +256,13 @@ export default function Timeline({
         <span style={{ width: 32, textAlign: "right", flexShrink: 0 }}>{isGK ? "VI" : "AST"}</span>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-start gap-[3px]">
-        {AGES.map((age) => {
+      {/* Mobile: showAll = libre (carrera terminada). fillHeight = flex-1. Normal: 220px. */}
+      <div
+        ref={scrollRef}
+        className={`timeline-rows flex flex-col gap-[3px] overflow-y-auto dark-scroll lg:flex-1 ${fillHeight || showAll ? "flex-1" : ""}`}
+        style={fillHeight || showAll ? undefined : { maxHeight: 220 }}
+      >
+        {visibleAges.map((age) => {
           const row = history.find((h) => h.age === age);
           const isCurrent = age === currentAge && !row && showCurrent;
           const isFuture = age > (currentAge || 0) && !row;
@@ -244,14 +278,17 @@ export default function Timeline({
 
           // Fade gradual para filas futuras
           const futureIndex = isFuture
-            ? AGES.indexOf(age) - AGES.indexOf(currentAge || AGES[0])
+            ? visibleAges.indexOf(age) - visibleAges.indexOf(currentAge || visibleAges[0])
             : 0;
           const futureOpacity = isFuture
             ? Math.max(0.05, 0.3 - futureIndex * 0.06)
             : 1;
 
+          // Fila que queremos mantener visible al hacer scroll automático
+          const isAnchor = isCurrent || (!!row && age === lastAge);
+
           return (
-            <div key={age}>
+            <div key={age} ref={isAnchor ? anchorRef : null}>
               <div
                 onClick={expandable ? () => setOpenAge(open ? null : age) : undefined}
                 style={{

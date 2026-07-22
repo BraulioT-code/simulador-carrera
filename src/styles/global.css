@@ -101,3 +101,10 @@ input[inputmode="numeric"] {
   background: #3a3a3f;
   border-radius: 4px;
 }
+
+/* Timeline: en desktop anula el max-height que se pone en mobile via inline style */
+@media (min-width: 1024px) {
+  .timeline-rows {
+    max-height: none !important;
+  }
+}
