@@ -13,6 +13,7 @@ export default function SetupScreen({ onConfirm, onOpenHallOfFame, onOpenRanking
   const [foot, setFoot] = useState("Derecha");
   const [country, setCountry] = useState("");
   const [position, setPosition] = useState("");
+  const [realisticMode, setRealisticMode] = useState(false);
 
   const kit = getKit(country);
   const canConfirm = surname.trim() && country && position;
@@ -20,7 +21,7 @@ export default function SetupScreen({ onConfirm, onOpenHallOfFame, onOpenRanking
 
   const handleConfirm = () => {
     if (!canConfirm) return;
-    onConfirm({ surname: surname.trim(), number: number || 10, foot, country, position });
+    onConfirm({ surname: surname.trim(), number: number || 10, foot, country, position, realisticMode });
   };
 
   const resetAll = () => {
@@ -29,8 +30,37 @@ export default function SetupScreen({ onConfirm, onOpenHallOfFame, onOpenRanking
     setFoot("Derecha");
     setCountry("");
     setPosition("");
+    setRealisticMode(false);
     setStep(0);
   };
+
+  const realisticToggle = (
+    <button
+      type="button"
+      onClick={() => setRealisticMode((v) => !v)}
+      className="flex w-full items-center justify-between rounded-xl bg-zinc-800/70 px-4 py-3"
+    >
+      <div className="text-left">
+        <div className="text-[12px] font-extrabold tracking-wide text-white">
+          Modo Realista
+        </div>
+        <div className="mt-0.5 text-[10px] text-zinc-500">
+          Carrera de 16 a 38 años · declive gradual tras los 32
+        </div>
+      </div>
+      <div
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${
+          realisticMode ? "bg-teal-500" : "bg-zinc-700"
+        }`}
+      >
+        <span
+          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+            realisticMode ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </div>
+    </button>
+  );
 
   const handleNumberChange = (e) => {
     const v = e.target.value.replace(/\D/g, "");
@@ -147,6 +177,7 @@ export default function SetupScreen({ onConfirm, onOpenHallOfFame, onOpenRanking
           {step === 2 && (
             <div className="mx-auto w-full max-w-[360px]">
               <PitchSelector value={position} onChange={setPosition} />
+              <div className="mt-4">{realisticToggle}</div>
             </div>
           )}
         </div>
@@ -229,6 +260,7 @@ export default function SetupScreen({ onConfirm, onOpenHallOfFame, onOpenRanking
             <div>
               <div className="mb-4 text-center text-base font-extrabold">Posición</div>
               <PitchSelector value={position} onChange={setPosition} />
+              <div className="mt-5">{realisticToggle}</div>
             </div>
           </div>
 

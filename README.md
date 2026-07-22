@@ -321,3 +321,5 @@ SETUP → CANTERA → PLAYING ⇄ (EVENT | TRANSFER) → … → OVER
 - **EVENT**: decisión con consecuencias (OVR, reputación, moral, selección).
 - **TRANSFER**: ofertas de otros clubes, con opción de quedarte si rendiste.
 - **OVER**: retiro y resumen final.
+
+V2

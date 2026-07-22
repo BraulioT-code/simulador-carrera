@@ -24,6 +24,9 @@ import {
   nationalCupName,
   estimateSalary,
   moraleDrift,
+  yearsInBlock,
+  ageBoostMultiplier,
+  physicalDebuffMultiplier,
 } from "../utils/gameLogic";
 import { generateHeadline } from "../utils/headlines";
 import { legendScore, legendTitle } from "../utils/legend";
@@ -41,6 +44,7 @@ const initialState = {
   offerWin: null,
   celebration: null,
   phase: PHASES.SETUP,
+  realisticMode: false,
 };
 
 // Qué trofeo se celebra primero cuando se ganan varios
@@ -69,6 +73,7 @@ export default function useCareerGame() {
     offerWin,
     celebration,
     phase,
+    realisticMode,
   } = state;
 
   // Guardado automático de la partida en curso
@@ -195,6 +200,7 @@ export default function useCareerGame() {
       player: newPlayer,
       offers: getDebutOffers(setup.country, 3),
       phase: PHASES.CANTERA,
+      realisticMode: !!setup.realisticMode,
     });
   }, []);
 
@@ -229,16 +235,19 @@ export default function useCareerGame() {
     // estado inconsistente) procese dos veces la misma temporada.
     if (!player || phase !== PHASES.PLAYING) return;
 
+    // Duración del bloque: 2 años en modo clásico, 1 año tras los 32 en modo realista
+    const years = yearsInBlock(player.age, realisticMode);
+
     // La moral influye en el rendimiento de la temporada
-    const stats = generateStats(player.position, player.overall, player.age, player.morale);
+    const stats = generateStats(player.position, player.overall, player.age, player.morale, years);
     // Minutos reducidos por decisiones de eventos (ej: conflicto con el DT)
     if (player.pjPenalty) {
       stats.pj = Math.max(5, Math.round(stats.pj * player.pjPenalty));
     }
     const season = evaluateSeason(player, stats);
     const trophies = [
-      ...generateTrophies(player, stats, season.rating),
-      ...generateAwards(player, stats, season.rating, player.age),
+      ...generateTrophies(player, stats, season.rating, years),
+      ...generateAwards(player, stats, season.rating, player.age, years),
     ];
 
     // Boost por premios individuales ganados esta temporada
@@ -254,6 +263,10 @@ export default function useCareerGame() {
       },
       { ovr: 0, rep: 0, morale: 0 }
     );
+    // En modo realista, los boosts de OVR por premios también se escalan por edad
+    if (realisticMode && boost.ovr !== 0) {
+      boost.ovr = Math.round(boost.ovr * ageBoostMultiplier(player.age));
+    }
 
     // Podio del Balón de Oro (si lo ganaste, o si te colaste 2º/3º)
     const ballonPodium = generateBallonPodium(
@@ -274,7 +287,7 @@ export default function useCareerGame() {
     const firstCallUp =
       (player.intCaps || 0) === 0 && player.overall >= 72 && season.rating >= 6.5;
     const hasNT = (player.intCaps || 0) > 0 || firstCallUp;
-    const nt = hasNT ? generateNationalStats(player, region) : null;
+    const nt = hasNT ? generateNationalStats(player, region, years) : null;
 
     const seasonHeadline = generateHeadline({
       player,
@@ -306,9 +319,9 @@ export default function useCareerGame() {
     ];
 
     // El crecimiento de OVR depende de la edad, el rendimiento y los premios
-    const delta = calculateOvrDelta(player.age, season.rating) + boost.ovr;
+    const delta = calculateOvrDelta(player.age, season.rating, player.overall, realisticMode) + boost.ovr;
     const newOvr = clamp(player.overall + delta, 40, 99);
-    const newAge = player.age + 2;
+    const newAge = player.age + years;
     const salary = player.salary || estimateSalary(player);
 
     // Moral: la temporada la mueve (buen año sube, malo baja) y luego deriva a 70
@@ -331,13 +344,13 @@ export default function useCareerGame() {
       pjPenalty: null,
       intCaps: (player.intCaps || 0) + (nt?.caps || 0),
       intGls: (player.intGls || 0) + (nt?.gls || 0),
-      earnings: Math.round(((player.earnings || 0) + salary * 2) * 10) / 10,
+      earnings: Math.round(((player.earnings || 0) + salary * years) * 10) / 10,
       salary: estimateSalary({ ...player, overall: newOvr, age: newAge }),
     };
 
     const celebrate = topTrophy(trophies);
 
-    if (shouldRetire(newAge, newOvr)) {
+    if (shouldRetire(newAge, newOvr) || (realisticMode && newAge > 38)) {
       const score = legendScore({ player: updatedPlayer, history: newHistory });
       addToHallOfFame({
         name: player.name,
@@ -537,7 +550,16 @@ export default function useCareerGame() {
           ],
         };
       } else {
-        ev = { ...pickWeighted(EVENTS) };
+        // En modo realista, los eventos físicos tienen mayor peso con la edad
+        if (realisticMode && player.age >= 32) {
+          const mult = physicalDebuffMultiplier(player.age);
+          const adjusted = EVENTS.map((e) =>
+            e.physical ? { ...e, w: (e.w ?? 1) * mult } : e
+          );
+          ev = { ...pickWeighted(adjusted) };
+        } else {
+          ev = { ...pickWeighted(EVENTS) };
+        }
       }
 
       update({ ...base, event: ev, phase: PHASES.EVENT });
@@ -546,7 +568,7 @@ export default function useCareerGame() {
     }
     // "phase" debe estar en las dependencias: el guard de arriba la usa, y sin
     // esto el botón quedaba muerto tras "Quedarse en tu club" (fase capturada vieja)
-  }, [player, history, firstClub, phase]);
+  }, [player, history, firstClub, phase, realisticMode]);
 
   const handleChoice = useCallback(
     (choice) => {
@@ -672,7 +694,12 @@ export default function useCareerGame() {
           msg = "-2 OVR. Lesión.";
         }
       } else {
-        if (eff.ovr) changes.overall = clamp(player.overall + eff.ovr, 40, 99);
+        if (eff.ovr) {
+          const ovrDelta = realisticMode
+            ? Math.round(eff.ovr * ageBoostMultiplier(player.age))
+            : eff.ovr;
+          changes.overall = clamp(player.overall + ovrDelta, 40, 99);
+        }
         if (eff.rep) changes.reputation = clamp(player.reputation + eff.rep, 0, 100);
         if (eff.morale) changes.morale = clamp(player.morale + eff.morale, 0, 100);
         if (eff.intCaps) changes.intCaps = (player.intCaps || 0) + randInt(3, 8);
@@ -700,7 +727,7 @@ export default function useCareerGame() {
         });
       }
     },
-    [player, history, firstClub, event]
+    [player, history, firstClub, event, realisticMode]
   );
 
   const stay = useCallback(() => {
@@ -728,6 +755,7 @@ export default function useCareerGame() {
     canStay,
     celebration,
     phase,
+    realisticMode,
     startGame,
     pickClub,
     simulate,

@@ -17,6 +17,67 @@ import { ALL_COUNTRIES, POS_MAP, PHASES, teamTint, getClubRating } from "../data
 import { marketValue } from "../utils/helpers";
 import { generateCareerImage } from "../utils/careerImage";
 import { legendScore, legendTitle, legendColor } from "../utils/legend";
+import { getCareerAges } from "../utils/gameLogic";
+
+/** Sección colapsable — solo colapsa en mobile, siempre visible en desktop */
+function CollapsibleSection({ title, defaultOpen = true, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mb-2">
+      {/* Header — solo visible en mobile */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between lg:hidden"
+        style={{
+          padding: "8px 0 6px",
+          borderBottom: "1px solid rgba(255,255,255,.06)",
+          marginBottom: open ? 8 : 0,
+        }}
+      >
+        <span style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.3)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          {title}
+        </span>
+        <svg
+          width="14" height="14" viewBox="0 0 16 16" fill="none"
+          style={{ opacity: 0.4, transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }}
+        >
+          <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {/* Contenido: en mobile respeta collapsed, en desktop siempre visible */}
+      <div className={open ? "block" : "hidden lg:block"}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Columna izquierda con secciones colapsables en mobile */
+function ColA({ player, natData, posData, marketVal, tPJ, tPJMax, tGLS, tAST, tGC, tVI, isGK, tNTCaps, tNTGls, tNTAst, tNTGc, tNTVi, allTrophies, history }) {
+  return (
+    <div className="shrink-0 lg:flex lg:flex-col lg:overflow-y-auto lg:pb-2 dark-scroll">
+      <PlayerHeader player={player} natData={natData} posData={posData} marketVal={marketVal} />
+      {history.length > 0 && (
+        <CollapsibleSection title="Total de carrera" defaultOpen={false}>
+          <StatsBar
+            pj={tPJ} pjMax={tPJMax} gls={tGLS} ast={tAST} gc={tGC} vi={tVI}
+            isGK={isGK}
+            ntCaps={tNTCaps} ntGls={tNTGls} ntAst={tNTAst} ntGc={tNTGc} ntVi={tNTVi}
+            natCode={natData?.c}
+          />
+        </CollapsibleSection>
+      )}
+      {(allTrophies.length > 0 || history.length > 0) && (
+        <div className={allTrophies.length === 0 ? "hidden lg:block" : ""}>
+          <CollapsibleSection title={`Vitrina · ${allTrophies.length} trofeo${allTrophies.length !== 1 ? "s" : ""}`} defaultOpen={false}>
+            <TrophyCabinet trophies={allTrophies} />
+          </CollapsibleSection>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function FxChip({ t, g, active = false, dim = false, landed = false }) {
   return (
@@ -53,20 +114,31 @@ function FxChip({ t, g, active = false, dim = false, landed = false }) {
   );
 }
 
-/** Chip con el ranking del club y si es un paso adelante o atrás */
+/** Chip con el ranking del club — estilo 1b */
 function RankChip({ rating, current }) {
   const diff = rating - current;
   const better = diff >= 3;
   const worse = diff <= -3;
   return (
     <div
-      className={`mt-1.5 flex w-full items-center justify-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black ${
-        better
-          ? "bg-emerald-950/70 text-emerald-400"
+      style={{
+        marginTop: 6,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 3,
+        padding: "2px 8px",
+        borderRadius: 4,
+        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontWeight: 700,
+        fontSize: 11,
+        background: better
+          ? "rgba(46,125,50,.15)"
           : worse
-            ? "bg-red-950/60 text-red-400"
-            : "bg-zinc-800/80 text-zinc-400"
-      }`}
+          ? "rgba(211,47,47,.12)"
+          : "rgba(255,255,255,.05)",
+        color: better ? "#66BB6A" : worse ? "#EF5350" : "rgba(255,255,255,.4)",
+      }}
       title={`Ranking del club: ${rating}`}
     >
       {better ? "▲" : worse ? "▼" : "="} RANK {rating}
@@ -172,6 +244,7 @@ export default function GameScreen({
   headline,
   canStay,
   celebration,
+  realisticMode,
   onPickClub,
   onSimulate,
   onHandleChoice,
@@ -316,7 +389,7 @@ export default function GameScreen({
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col">
+    <div className="flex min-h-[100dvh] flex-col lg:h-[100dvh] lg:overflow-hidden">
       <TrophyCelebration trophy={showCelebration ? celebration : null} onDone={dismissCelebration} />
       {showHof && <HallOfFame onClose={() => setShowHof(false)} />}
       {showRanking && (
@@ -338,36 +411,31 @@ export default function GameScreen({
         />
       )}
 
-      <div className="mx-auto flex w-full max-w-[1080px] flex-1 flex-col p-3 lg:grid lg:grid-cols-[46%_1fr] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-4 lg:p-4">
-        {/* Bloque A: jugador */}
-        <div className="shrink-0 lg:col-start-1 lg:row-start-1">
-          <PlayerHeader player={player} natData={natData} posData={posData} marketVal={mv} />
-          {history.length > 0 && (
-            <StatsBar
-              pj={tPJ}
-              pjMax={tPJMax}
-              gls={tGLS}
-              ast={tAST}
-              gc={tGC}
-              vi={tVI}
-              isGK={isGK}
-              ntCaps={tNTCaps}
-              ntGls={tNTGls}
-              ntAst={tNTAst}
-              ntGc={tNTGc}
-              ntVi={tNTVi}
-              natCode={natData?.c}
-            />
-          )}
-          {(allTrophies.length > 0 || history.length > 0) && (
-            <div className={allTrophies.length === 0 ? "hidden lg:block" : ""}>
-              <TrophyCabinet trophies={allTrophies} />
-            </div>
-          )}
-        </div>
+      {/*
+        ── Layout de 3 columnas en desktop, stacked en mobile ──
+        Col 1 (360px): identidad del jugador
+        Col 2 (1fr):   línea de tiempo
+        Col 3 (340px): panel de acción actual
+        Cada columna scrollea de forma independiente para evitar scroll global.
+      */}
+      <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col p-3 lg:grid lg:grid-cols-[360px_1fr_340px] lg:gap-x-4 lg:overflow-hidden lg:p-5"
+        style={{ minHeight: 0 }}>
 
-        {/* Bloque B: línea de tiempo (crece y la página scrollea si hace falta) */}
-        <div className="flex flex-1 flex-col lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-stretch">
+        {/* Bloque A: jugador — Col 1 */}
+        <ColA
+          player={player}
+          natData={natData}
+          posData={posData}
+          marketVal={mv}
+          tPJ={tPJ} tPJMax={tPJMax} tGLS={tGLS} tAST={tAST} tGC={tGC} tVI={tVI}
+          isGK={isGK}
+          tNTCaps={tNTCaps} tNTGls={tNTGls} tNTAst={tNTAst} tNTGc={tNTGc} tNTVi={tNTVi}
+          allTrophies={allTrophies}
+          history={history}
+        />
+
+        {/* Bloque B: línea de tiempo — Col 2 */}
+        <div className="flex flex-1 flex-col lg:overflow-y-auto lg:pb-2 dark-scroll" style={{ minHeight: 0 }}>
           <Timeline
             history={history}
             currentAge={player.age}
@@ -375,18 +443,40 @@ export default function GameScreen({
             isGK={isGK}
             natCode={natData?.c}
             nationality={player.nationality}
+            ages={getCareerAges(realisticMode)}
           />
         </div>
 
-        {/* Bloque C: acciones (hoja inferior en mobile) */}
-        <div className="-mx-3 mt-2 shrink-0 rounded-t-2xl bg-[#131316] px-4 pb-4 pt-3 ring-1 ring-zinc-800/70 lg:col-start-1 lg:row-start-2 lg:m-0 lg:rounded-none lg:bg-transparent lg:p-0 lg:ring-0">
+        {/* Bloque C: acción actual — Col 3 */}
+        <div className="mt-3 shrink-0 pb-6 lg:col-start-3 lg:mt-0 lg:overflow-y-auto lg:pb-2 dark-scroll">
           {headline && phase !== PHASES.OVER && (
-            <div className="mb-2 flex items-start gap-2 rounded-lg bg-zinc-800/40 px-3 py-2">
-              <span className="mt-[1px] shrink-0 rounded bg-zinc-700 px-1.5 py-0.5 text-[8px] font-black tracking-widest text-zinc-300">
-                PRENSA
+            <div
+              className="mb-2 flex items-start gap-2"
+              style={{
+                background: "rgba(255,255,255,.025)",
+                border: "1px solid rgba(255,255,255,.06)",
+                borderRadius: 10,
+                padding: "10px 14px",
+              }}
+            >
+              <span
+                style={{
+                  flexShrink: 0,
+                  padding: "3px 8px",
+                  background: "rgba(255,255,255,.08)",
+                  borderRadius: 4,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,.5)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  marginTop: 1,
+                }}
+              >
+                Prensa
               </span>
-              <span className="text-[12px] font-semibold italic leading-snug text-zinc-300">
-                “{headline}”
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,.5)", fontStyle: "italic", lineHeight: 1.5 }}>
+                "{headline}"
               </span>
             </div>
           )}
@@ -416,39 +506,67 @@ export default function GameScreen({
               </p>
 
               <div className="flex gap-2">
-                {offers.map((o, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => onPickClub(o)}
-                    className="flex min-w-0 flex-1 flex-col items-center justify-between rounded-xl border border-zinc-700/70 p-2.5 text-center transition-colors hover:border-zinc-400 lg:p-3"
-                    style={{
-                      background: `linear-gradient(160deg, ${teamTint(o.team, o.league, 0.2)}, #17171b 75%)`,
-                    }}
-                  >
-                    <div className="text-[9px] text-zinc-500 lg:text-[10px]">Fichar por</div>
-                    <div className="mb-1.5 w-full truncate text-[12px] font-extrabold leading-tight lg:text-[13px]">
-                      {o.team}
-                    </div>
-                    <ClubLogo team={o.team} league={o.league} size={38} />
-                    <div className="mt-1.5 flex w-full items-center justify-center gap-1 text-[9px] text-zinc-400 lg:text-[10px]">
-                      <Flag code={o.code} className="w-3.5 h-[10px]" />
-                      <span className="truncate">{o.league}</span>
-                    </div>
-                    {/* Ranking del club respecto al actual */}
-                    <RankChip
-                      rating={o.rating ?? getClubRating(o.team, o.league)}
-                      current={currentRating}
-                    />
-                  </button>
-                ))}
+                {offers.map((o, i) => {
+                  const oTeamColor = teamTint(o.team, o.league, 0.6);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onPickClub(o)}
+                      className="flex min-w-0 flex-1 flex-col items-center justify-between p-2.5 text-center transition-all lg:p-3"
+                      style={{
+                        background: "rgba(255,255,255,.03)",
+                        border: "1px solid rgba(255,255,255,.06)",
+                        borderTop: `2px solid ${oTeamColor}`,
+                        borderRadius: 8,
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.05)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.03)"; }}
+                    >
+                      <div style={{ fontSize: 9, color: "rgba(255,255,255,.3)", fontWeight: 500 }}>Fichar por</div>
+                      <div
+                        style={{
+                          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                          fontWeight: 700,
+                          fontSize: 16,
+                          color: "#fff",
+                          margin: "2px 0 6px",
+                          width: "100%",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {o.team}
+                      </div>
+                      <ClubLogo team={o.team} league={o.league} size={36} />
+                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 3, fontSize: 10, color: "rgba(255,255,255,.4)" }}>
+                        <Flag code={o.code} className="w-3.5 h-[10px]" />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.league}</span>
+                      </div>
+                      <RankChip
+                        rating={o.rating ?? getClubRating(o.team, o.league)}
+                        current={currentRating}
+                      />
+                    </button>
+                  );
+                })}
               </div>
 
               {phase === PHASES.TRANSFER && canStay && (
                 <button
                   type="button"
                   onClick={onStay}
-                  className="mt-2 w-full rounded-lg border border-zinc-700 py-2.5 text-[13px] font-semibold transition-colors hover:bg-zinc-800/70"
+                  className="mt-2 w-full py-2.5 text-[13px] font-semibold transition-colors"
+                  style={{
+                    background: "rgba(255,255,255,.03)",
+                    border: "1px solid rgba(255,255,255,.06)",
+                    borderRadius: 8,
+                    color: "rgba(255,255,255,.5)",
+                    textAlign: "center",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.05)"; e.currentTarget.style.color = "rgba(255,255,255,.7)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.03)"; e.currentTarget.style.color = "rgba(255,255,255,.5)"; }}
                 >
                   Quedarse en {player.team}
                 </button>
@@ -461,9 +579,19 @@ export default function GameScreen({
             <button
               type="button"
               onClick={onSimulate}
-              className="w-full rounded-lg bg-amber-500 py-3 text-sm font-extrabold text-black transition-colors hover:bg-amber-400"
+              className="w-full py-3 text-sm font-extrabold transition-colors"
+              style={{
+                background: "linear-gradient(135deg,#92750B,#C9A227)",
+                borderRadius: 8,
+                color: "#080C14",
+                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                fontSize: 16,
+                letterSpacing: "0.04em",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(1.1)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
             >
-              Simular Temporada ({player.age} años)
+              Simular Temporada · {player.age} años
             </button>
           )}
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AGES, ALL_COUNTRIES, getTeamColor, teamTint } from "../data";
+import { AGES as AGES_DEFAULT, ALL_COUNTRIES, getTeamColor, teamTint } from "../data";
 import OvrBadge from "./OvrBadge";
 import Trophy from "./Trophy";
 import ClubLogo from "./ClubLogo";
@@ -7,25 +7,35 @@ import Flag from "./Flag";
 import CountUp, { SEQ } from "./CountUp";
 import { IconMatches, IconBall, IconAssist, IconGoalConceded, IconCleanSheet } from "./Icons";
 
-function StatCell({ icon, value, w = "w-9 lg:w-12", animate = false, delay = 0 }) {
-  const content = !animate ? (
-    value
-  ) : typeof value === "string" && value.includes("/") ? (
-    <>
-      <CountUp value={value.split("/")[0]} duration={650} delay={delay} />
-      <span className="opacity-60">/</span>
-      <CountUp value={value.split("/")[1]} duration={650} delay={delay} />
-    </>
-  ) : (
-    <CountUp value={value} duration={650} delay={delay} />
-  );
+function StatCell({ icon, value, w = 36, animate = false, delay = 0 }) {
+  const content = !animate
+    ? value
+    : typeof value === "string" && value.includes("/")
+    ? (
+      <>
+        <CountUp value={value.split("/")[0]} duration={650} delay={delay} />
+        <span style={{ opacity: 0.5 }}>/</span>
+        <CountUp value={value.split("/")[1]} duration={650} delay={delay} />
+      </>
+    )
+    : <CountUp value={value} duration={650} delay={delay} />;
 
   return (
     <span
-      className={`${w} flex shrink-0 items-center justify-end gap-1 text-[11px] font-bold text-zinc-300 lg:text-[12px] ${
-        animate ? "stat-reveal" : ""
-      }`}
-      style={animate ? { animationDelay: `${delay}ms` } : undefined}
+      className={animate ? "stat-reveal" : ""}
+      style={{
+        width: w,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        gap: 3,
+        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontWeight: 600,
+        fontSize: 13,
+        color: "rgba(255,255,255,.45)",
+        animationDelay: animate ? `${delay}ms` : undefined,
+      }}
     >
       {icon}
       {content}
@@ -35,84 +45,144 @@ function StatCell({ icon, value, w = "w-9 lg:w-12", animate = false, delay = 0 }
 
 const codeOf = (country) => ALL_COUNTRIES.find((c) => c.n === country)?.c;
 
-/** Fila desplegable: stats de selección, rival de la final y podio del Balón de Oro */
-function NationalRow({ nt, ballonPodium, natCode, nationality, isGK }) {
+/** Sección divisor dentro del panel expandido */
+function ExpandDivider() {
+  return <div style={{ height: 1, background: "rgba(255,255,255,.06)", margin: "6px 0" }} />;
+}
+
+/**
+ * Panel expandido de una temporada:
+ * muestra trofeos ganados, estadísticas de selección y podio Balón de Oro.
+ */
+function ExpandedRow({ trophies, nt, ballonPodium, natCode, nationality, isGK }) {
+  const hasTrophies = (trophies || []).length > 0;
+  const hasNt = !!nt;
+  const hasBallon = !!ballonPodium;
+
   return (
-    <div className="mx-2 -mt-0.5 mb-0.5 rounded-b-lg border border-t-0 border-sky-900/40 bg-sky-950/25 px-2.5 py-1.5">
-      {nt && (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="flex items-center gap-1.5 text-[10px] font-black tracking-wide text-sky-300">
-        <Flag code={natCode} className="w-4 h-[11px]" />
-        {nationality?.toUpperCase()}
-      </span>
-      {(nt.comps || []).map((c, i) => (
-        <span
-          key={i}
-          className="flex items-center gap-1 rounded bg-sky-900/50 px-1.5 py-0.5 text-[9px] font-bold text-sky-200"
-          title={c.stage || undefined}
-        >
-          {c.n} <span className="text-white">{c.pj}</span>
-          {c.stage && <span className="text-sky-300/70">· {c.stage}</span>}
-          {c.rival && (
-            <>
-              <span className="text-sky-300/70">vs</span>
-              <Flag code={codeOf(c.rival)} className="w-3.5 h-[10px]" />
-              <span className="text-white">{c.rival}</span>
-              {c.won === true && <span className="font-black text-emerald-400">✓</span>}
-              {c.won === false && <span className="font-black text-red-400">✗</span>}
-            </>
-          )}
-        </span>
-      ))}
-      <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-300">
-        <IconMatches size={10} />
-        {nt.caps} PJ
-      </span>
-      {isGK ? (
-        <>
-          <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-300">
-            <IconGoalConceded size={10} />
-            {nt.gc}
-          </span>
-          <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-300">
-            <IconCleanSheet size={10} />
-            {nt.vi}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-300">
-            <IconBall size={10} />
-            {nt.gls}
-          </span>
-          <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-300">
-            <IconAssist size={10} />
-            {nt.ast}
-          </span>
-        </>
-      )}
-      </div>
+    <div
+      style={{
+        margin: "0 4px 3px",
+        marginTop: -2,
+        borderRadius: "0 0 8px 8px",
+        border: "1px solid rgba(255,255,255,.07)",
+        borderTop: "none",
+        background: "rgba(255,255,255,.025)",
+        padding: "8px 12px 10px 52px",
+      }}
+    >
+      {/* ── Trofeos ── */}
+      {hasTrophies && (
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.25)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+            Trofeos
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {trophies.map((t, i) => (
+              <span
+                key={i}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "3px 8px",
+                  borderRadius: 5,
+                  background: "rgba(201,162,39,.1)",
+                  border: "1px solid rgba(201,162,39,.2)",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,.7)",
+                }}
+              >
+                <Trophy type={t.t} name={t.n} size={13} />
+                {t.n}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* Podio del Balón de Oro */}
-      {ballonPodium && (
-        <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${nt ? "mt-1.5 border-t border-sky-900/40 pt-1.5" : ""}`}>
-          <span className="text-[10px] font-black tracking-wide text-amber-400">
-            BALÓN DE ORO
-          </span>
-          {ballonPodium.map((p, i) => (
-            <span
-              key={i}
-              className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                p.you
-                  ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50"
-                  : "bg-zinc-800/70 text-zinc-400"
-              }`}
-            >
-              {i + 1}º {p.name}
-              <span className={p.you ? "text-amber-400/70" : "text-zinc-600"}> · {p.club}</span>
+      {/* ── Selección nacional ── */}
+      {hasNt && (
+        <div style={hasTrophies ? { marginTop: 6 } : {}}>
+          {hasTrophies && <ExpandDivider />}
+          <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(66,165,245,.6)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+            Selección
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: "#42A5F5", letterSpacing: "0.06em" }}>
+              <Flag code={natCode} className="w-4 h-[11px]" />
+              {nationality?.toUpperCase()}
             </span>
-          ))}
+            {(nt.comps || []).map((c, i) => (
+              <span
+                key={i}
+                style={{
+                  display: "flex", alignItems: "center", gap: 4,
+                  background: "rgba(21,101,192,.3)", padding: "2px 7px",
+                  borderRadius: 4, fontSize: 9, fontWeight: 700, color: "#90CAF9",
+                }}
+                title={c.stage || undefined}
+              >
+                {c.n} <span style={{ color: "#fff" }}>{c.pj}</span>
+                {c.stage && <span style={{ color: "rgba(144,202,249,.6)" }}>· {c.stage}</span>}
+                {c.rival && (
+                  <>
+                    <span style={{ color: "rgba(144,202,249,.6)" }}>vs</span>
+                    <Flag code={codeOf(c.rival)} className="w-3.5 h-[10px]" />
+                    <span style={{ color: "#fff" }}>{c.rival}</span>
+                    {c.won === true && <span style={{ fontWeight: 900, color: "#66BB6A" }}>✓</span>}
+                    {c.won === false && <span style={{ fontWeight: 900, color: "#EF5350" }}>✗</span>}
+                  </>
+                )}
+              </span>
+            ))}
+            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.55)" }}>
+              <IconMatches size={10} /> {nt.caps} PJ
+            </span>
+            {isGK ? (
+              <>
+                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.55)" }}>
+                  <IconGoalConceded size={10} /> {nt.gc}
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.55)" }}>
+                  <IconCleanSheet size={10} /> {nt.vi}
+                </span>
+              </>
+            ) : (
+              <>
+                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.55)" }}>
+                  <IconBall size={10} /> {nt.gls}
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.55)" }}>
+                  <IconAssist size={10} /> {nt.ast}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Balón de Oro ── */}
+      {hasBallon && (
+        <div style={(hasTrophies || hasNt) ? { marginTop: 6 } : {}}>
+          {(hasTrophies || hasNt) && <ExpandDivider />}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 8px" }}>
+            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: "#C9A227" }}>BALÓN DE ORO</span>
+            {ballonPodium.map((p, i) => (
+              <span
+                key={i}
+                style={{
+                  padding: "2px 7px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                  background: p.you ? "rgba(201,162,39,.15)" : "rgba(255,255,255,.06)",
+                  color: p.you ? "#C9A227" : "rgba(255,255,255,.4)",
+                  outline: p.you ? "1px solid rgba(201,162,39,.3)" : "none",
+                }}
+              >
+                {i + 1}º {p.name}<span style={{ opacity: 0.6 }}> · {p.club}</span>
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -126,162 +196,231 @@ export default function Timeline({
   isGK = false,
   natCode,
   nationality,
+  ages,
 }) {
+  const AGES = ages ?? AGES_DEFAULT;
   const [openAge, setOpenAge] = useState(null);
-  // Solo la última temporada jugada anima sus números
   const lastAge = history.length ? history[history.length - 1].age : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Encabezado: misma estructura y paddings que las filas para alinear columnas */}
-      <div className="flex items-center gap-1.5 border border-transparent px-1.5 pb-1.5 text-[8px] font-bold tracking-wider text-zinc-500 lg:gap-2 lg:px-2 lg:pb-2 lg:text-[9px]">
-        <span className="w-7 shrink-0 text-center lg:w-8">EDAD</span>
-        <span className="flex-1 pl-7 lg:pl-8">CLUB</span>
-        <span className="w-8 shrink-0 text-right lg:w-9">OVR</span>
-        <span className="w-14 shrink-0 text-right lg:w-16">PJ</span>
-        <span className="w-9 shrink-0 text-right lg:w-12">{isGK ? "GC" : "GLS"}</span>
-        <span className="w-9 shrink-0 text-right lg:w-12">{isGK ? "VI" : "AST"}</span>
+      {/* Encabezado de columnas */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "0 12px 8px",
+          fontSize: 9,
+          fontWeight: 600,
+          color: "rgba(255,255,255,.2)",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        <span style={{ width: 28, textAlign: "center", flexShrink: 0 }}>Edad</span>
+        <span style={{ width: 20, flexShrink: 0 }} />
+        <span style={{ flex: 1 }}>Club</span>
+        <span style={{ width: 40, textAlign: "center", flexShrink: 0 }}>OVR</span>
+        <span style={{ width: 56, textAlign: "right", flexShrink: 0 }}>PJ</span>
+        <span style={{ width: 32, textAlign: "right", flexShrink: 0 }}>{isGK ? "GC" : "GLS"}</span>
+        <span style={{ width: 32, textAlign: "right", flexShrink: 0 }}>{isGK ? "VI" : "AST"}</span>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-start gap-1 lg:gap-1.5">
+      <div className="flex min-h-0 flex-1 flex-col justify-start gap-[3px]">
         {AGES.map((age) => {
           const row = history.find((h) => h.age === age);
           const isCurrent = age === currentAge && !row && showCurrent;
           const isFuture = age > (currentAge || 0) && !row;
           const teamColor = row ? getTeamColor(row.team, row.league) : "#3f3f46";
-          const tint = row ? teamTint(row.team, row.league, 0.18) : "transparent";
+          const tint = row ? teamTint(row.team, row.league, 0.15) : "transparent";
+          const tintBorder = row ? teamTint(row.team, row.league, 0.28) : "transparent";
 
           const hasNt = !!row?.nt;
-          const expandable = hasNt || !!row?.ballonPodium;
+          const hasTrophies = (row?.trophies || []).length > 0;
+          const expandable = hasNt || !!row?.ballonPodium || hasTrophies;
           const open = expandable && openAge === age;
           const isNew = !!row && age === lastAge;
 
+          // Fade gradual para filas futuras
+          const futureIndex = isFuture
+            ? AGES.indexOf(age) - AGES.indexOf(currentAge || AGES[0])
+            : 0;
+          const futureOpacity = isFuture
+            ? Math.max(0.05, 0.3 - futureIndex * 0.06)
+            : 1;
+
           return (
             <div key={age}>
-            <div
-              className={`flex items-center gap-1.5 rounded-md px-1.5 py-[3px] lg:gap-2 lg:rounded-lg lg:px-2 lg:py-1.5 ${
-                expandable ? "cursor-pointer" : ""
-              } ${open ? "rounded-b-none lg:rounded-b-none" : ""}`}
-              onClick={expandable ? () => setOpenAge(open ? null : age) : undefined}
-              style={{
-                background: row
-                  ? `linear-gradient(90deg, ${tint}, rgba(19,19,22,.9) 85%)`
-                  : isCurrent
-                    ? "rgba(63,63,70,.25)"
-                    : "transparent",
-                border: row
-                  ? `1px solid ${teamTint(row.team, row.league, 0.3)}`
-                  : "1px solid transparent",
-                opacity: isFuture ? 0.25 : 1,
-              }}
-            >
-              {/* Edad */}
-              <span
-                className="flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-black text-white lg:h-7 lg:w-8 lg:text-[13px]"
+              <div
+                onClick={expandable ? () => setOpenAge(open ? null : age) : undefined}
                 style={{
-                  background: row ? teamColor : isCurrent ? "#3f3f46" : "#1c1c20",
-                  textShadow: "0 1px 2px rgba(0,0,0,.5)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  borderRadius: open ? "8px 8px 0 0" : 8,
+                  background: row
+                    ? `linear-gradient(90deg, ${tint}, rgba(15,20,32,.92) 85%)`
+                    : isCurrent
+                    ? "rgba(255,255,255,.025)"
+                    : "transparent",
+                  border: row
+                    ? `1px solid ${tintBorder}`
+                    : isCurrent
+                    ? "1px solid rgba(255,255,255,.06)"
+                    : "1px solid transparent",
+                  borderLeft: row ? `3px solid ${teamColor}` : isCurrent ? "3px solid rgba(255,255,255,.15)" : "3px solid transparent",
+                  opacity: isFuture ? futureOpacity : 1,
+                  cursor: expandable ? "pointer" : "default",
                 }}
               >
-                {age}
-              </span>
+                {/* Edad en Barlow Condensed */}
+                <span
+                  style={{
+                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                    fontWeight: 700,
+                    fontSize: 16,
+                    color: isCurrent ? "rgba(255,255,255,.6)" : "rgba(255,255,255,.45)",
+                    width: 28,
+                    textAlign: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {age}
+                </span>
 
-              {/* Club + trofeos */}
-              <span className="flex min-w-0 flex-1 items-center gap-1.5 lg:gap-2">
-                {row ? (
-                  <>
-                    <ClubLogo team={row.team} league={row.league} size={20} />
-                    <span className="truncate text-[11px] font-extrabold lg:text-[13px]">
-                      {row.team}
-                    </span>
-                    <span className="flex shrink-0 items-end gap-0.5">
-                      {(row.trophies || []).map((t, i) => (
-                        <Trophy key={i} type={t.t} name={t.n} size={12} />
-                      ))}
-                    </span>
-                    {expandable && (
+                {/* Logo del club */}
+                <span style={{ width: 20, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {row ? (
+                    <ClubLogo team={row.team} league={row.league} size={18} />
+                  ) : isCurrent ? (
+                    <ClubLogo team="Libre" size={16} />
+                  ) : null}
+                </span>
+
+                {/* Nombre del club + trofeos */}
+                <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                  {row ? (
+                    <>
                       <span
-                        className={`flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[8px] font-black ${
-                          hasNt ? "bg-sky-950/60 text-sky-300" : "bg-amber-950/60 text-amber-300"
-                        }`}
-                        title={
-                          hasNt
-                            ? "Ver estadísticas con la selección"
-                            : "Ver podio del Balón de Oro"
-                        }
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "rgba(255,255,255,.75)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
                       >
-                        {hasNt ? (
-                          <Flag code={natCode} className="w-3 h-[8px]" />
-                        ) : (
-                          <span aria-hidden>●</span>
-                        )}
-                        <svg
-                          width="7"
-                          height="7"
-                          viewBox="0 0 10 10"
-                          className={`transition-transform ${open ? "rotate-180" : ""}`}
-                        >
-                          <path
-                            d="M2 3.5 L5 6.5 L8 3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                          />
-                        </svg>
+                        {row.team}
                       </span>
-                    )}
+                      <span style={{ display: "flex", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+                        {(row.trophies || []).map((t, i) => (
+                          <Trophy key={i} type={t.t} name={t.n} size={12} />
+                        ))}
+                      </span>
+                      {expandable && (
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 3,
+                            padding: "1px 5px",
+                            borderRadius: 4,
+                            fontSize: 8,
+                            fontWeight: 800,
+                            flexShrink: 0,
+                            background: hasNt
+                              ? "rgba(21,101,192,.3)"
+                              : hasTrophies
+                              ? "rgba(201,162,39,.15)"
+                              : "rgba(201,162,39,.15)",
+                            color: hasNt ? "#42A5F5" : "#C9A227",
+                          }}
+                          title={
+                            hasNt
+                              ? "Ver estadísticas con la selección"
+                              : hasTrophies
+                              ? "Ver detalles de trofeos"
+                              : "Ver podio del Balón de Oro"
+                          }
+                        >
+                          {hasNt ? (
+                            <Flag code={natCode} className="w-3 h-[8px]" />
+                          ) : hasTrophies ? (
+                            <span aria-hidden style={{ fontSize: 9 }}>🏆</span>
+                          ) : (
+                            <span aria-hidden>●</span>
+                          )}
+                          <svg
+                            width="7"
+                            height="7"
+                            viewBox="0 0 10 10"
+                            style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }}
+                          >
+                            <path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                      )}
+                    </>
+                  ) : isCurrent ? (
+                    <span style={{ fontSize: 12, fontStyle: "italic", color: "rgba(255,255,255,.35)" }}>
+                      Eligiendo club…
+                    </span>
+                  ) : null}
+                </span>
+
+                {/* OVR hex + stats */}
+                {row && (
+                  <>
+                    <span
+                      className={isNew ? "stat-reveal" : ""}
+                      style={{
+                        width: 40,
+                        flexShrink: 0,
+                        display: "flex",
+                        justifyContent: "center",
+                        animationDelay: isNew ? `${SEQ.ovrRow}ms` : undefined,
+                      }}
+                    >
+                      <OvrBadge ovr={row.ovr} size={28} animate={isNew} delay={SEQ.ovrRow} />
+                    </span>
+                    <StatCell
+                      icon={<IconMatches size={10} />}
+                      value={row.pjMax ? `${row.pj}/${row.pjMax}` : row.pj}
+                      w={56}
+                      animate={isNew}
+                      delay={SEQ.pj}
+                    />
+                    <StatCell
+                      icon={isGK ? <IconGoalConceded size={10} /> : <IconBall size={10} />}
+                      value={isGK ? row.gc : row.gls}
+                      w={32}
+                      animate={isNew}
+                      delay={SEQ.gls}
+                    />
+                    <StatCell
+                      icon={isGK ? <IconCleanSheet size={10} /> : <IconAssist size={10} />}
+                      value={isGK ? row.vi : row.ast}
+                      w={32}
+                      animate={isNew}
+                      delay={SEQ.ast}
+                    />
                   </>
-                ) : isCurrent ? (
-                  <span className="flex items-center gap-1.5 text-[11px] italic text-zinc-500 lg:text-[12px]">
-                    <ClubLogo team="Libre" size={18} />
-                    Eligiendo club…
-                  </span>
-                ) : null}
-              </span>
+                )}
+              </div>
 
-              {/* OVR + stats */}
-              {row && (
-                <>
-                  {/* Secuencia: OVR → PJ → GLS → AST */}
-                  <span
-                    className={`flex w-8 shrink-0 justify-end lg:w-9 ${isNew ? "stat-reveal" : ""}`}
-                    style={isNew ? { animationDelay: `${SEQ.ovrRow}ms` } : undefined}
-                  >
-                    <OvrBadge ovr={row.ovr} size={24} animate={isNew} delay={SEQ.ovrRow} />
-                  </span>
-                  <StatCell
-                    icon={<IconMatches size={11} />}
-                    value={row.pjMax ? `${row.pj}/${row.pjMax}` : row.pj}
-                    w="w-14 lg:w-16"
-                    animate={isNew}
-                    delay={SEQ.pj}
-                  />
-                  <StatCell
-                    icon={isGK ? <IconGoalConceded size={11} /> : <IconBall size={11} />}
-                    value={isGK ? row.gc : row.gls}
-                    animate={isNew}
-                    delay={SEQ.gls}
-                  />
-                  <StatCell
-                    icon={isGK ? <IconCleanSheet size={11} /> : <IconAssist size={11} />}
-                    value={isGK ? row.vi : row.ast}
-                    animate={isNew}
-                    delay={SEQ.ast}
-                  />
-                </>
+              {open && (
+                <ExpandedRow
+                  trophies={row.trophies}
+                  nt={row.nt}
+                  ballonPodium={row.ballonPodium}
+                  natCode={natCode}
+                  nationality={nationality}
+                  isGK={isGK}
+                />
               )}
-            </div>
-
-            {open && (
-              <NationalRow
-                nt={row.nt}
-                ballonPodium={row.ballonPodium}
-                natCode={natCode}
-                nationality={nationality}
-                isGK={isGK}
-              />
-            )}
             </div>
           );
         })}

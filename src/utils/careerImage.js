@@ -5,30 +5,20 @@ const W = 720;
 const PAD = 24;
 const SCALE = 2;
 
-// Carga una imagen sin manchar el canvas; null si falla o tarda
+// ─── Image loading ─────────────────────────────────────────────────────────
+
 function loadImg(url, timeout = 2500) {
   return new Promise((resolve) => {
     if (!url) return resolve(null);
     const img = new Image();
     img.crossOrigin = "anonymous";
     const timer = setTimeout(() => resolve(null), timeout);
-    img.onload = () => {
-      clearTimeout(timer);
-      resolve(img);
-    };
-    img.onerror = () => {
-      clearTimeout(timer);
-      resolve(null);
-    };
+    img.onload = () => { clearTimeout(timer); resolve(img); };
+    img.onerror = () => { clearTimeout(timer); resolve(null); };
     img.src = url;
   });
 }
 
-/**
- * Proxy de imágenes con CORS habilitado.
- * Algunos CDN de escudos no envían cabeceras CORS, así que el canvas no puede
- * exportarlos; pasándolos por el proxy sí se pueden dibujar y copiar.
- */
 function corsProxy(url, size = 128) {
   const clean = url.replace(/^https?:\/\//, "");
   return `https://images.weserv.nl/?url=${encodeURIComponent(clean)}&w=${size}&h=${size}&fit=inside&output=png`;
@@ -50,22 +40,12 @@ async function toDataUrl(url) {
   }
 }
 
-/**
- * Carga un escudo de forma segura para exportar, probando en orden:
- * 1) el PNG del CDN con CORS,
- * 2) el mismo PNG a través de un proxy con CORS,
- * 3) descarga por fetch convertida a data URL,
- * 4) null → se dibuja el escudo SVG propio con los colores del club.
- */
 async function loadCrest(url) {
   if (!url) return null;
-
   const direct = await loadImg(url, 1500);
   if (direct) return direct;
-
   const viaProxy = await loadImg(corsProxy(url), 2500);
   if (viaProxy) return viaProxy;
-
   for (const candidate of [url, corsProxy(url)]) {
     const dataUrl = await toDataUrl(candidate);
     if (dataUrl) {
@@ -76,7 +56,6 @@ async function loadCrest(url) {
   return null;
 }
 
-/** Escudo SVG generado con los colores del club (respaldo con aspecto real) */
 function crestSvg(team, league) {
   const color = getTeamColor(team, league);
   const ini = initials(team);
@@ -125,16 +104,7 @@ function initials(team) {
     .toUpperCase();
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-}
-
-function drawLogo(ctx, img, team, league, x, y, size) {
-  if (img) ctx.drawImage(img, x, y, size, size);
-}
-
-/* ===== Trofeos: los mismos SVG de la app, cargados como imagen ===== */
+// ─── Trophy SVGs ───────────────────────────────────────────────────────────
 
 const SILVER = ["#fafafa", "#c8c8cf", "#8e8e98"];
 const GOLD = ["#fdeaa0", "#f0c243", "#b07d1e"];
@@ -232,7 +202,6 @@ function trophySvg(type, gold = false) {
   }
 }
 
-// El continental europeo (Champions League) es plateado; el resto dorado
 function isGoldContinental(t) {
   return t.t === "continental" && !/Champions League$/.test(t.n || "");
 }
@@ -254,7 +223,104 @@ async function loadTrophyImages(trophies) {
   return imgs;
 }
 
-// Dibuja un trofeo manteniendo la proporción 24x30
+// ─── Design system helpers ─────────────────────────────────────────────────
+
+/** Colores de gradiente por tier de OVR */
+function ovrGradientColors(ovr) {
+  if (ovr >= 96) return ["#AD1457", "#EC407A"];
+  if (ovr >= 90) return ["#6A1B9A", "#AB47BC"];
+  if (ovr >= 83) return ["#1565C0", "#42A5F5"];
+  if (ovr >= 77) return ["#2E7D32", "#66BB6A"];
+  if (ovr >= 70) return ["#92750B", "#C9A227"];
+  if (ovr >= 63) return ["#6B7280", "#9CA3AF"];
+  if (ovr >= 55) return ["#8B6914", "#CD7F32"];
+  return ["#7B5B2A", "#A67C3D"];
+}
+
+/** Color del número OVR por tier */
+function ovrTextCol(ovr) {
+  if (ovr >= 96) return "#F48FB1";
+  if (ovr >= 90) return "#CE93D8";
+  if (ovr >= 83) return "#90CAF9";
+  if (ovr >= 77) return "#A5D6A7";
+  if (ovr >= 70) return "#FFE082";
+  if (ovr >= 63) return "#E2E8F0";
+  if (ovr >= 55) return "#FFB74D";
+  return "#FFCC80";
+}
+
+/** Color de la moral */
+function moraleColor(v) {
+  if (v >= 75) return "#66BB6A";
+  if (v >= 55) return "#84cc16";
+  if (v >= 40) return "#eab308";
+  if (v >= 25) return "#f97316";
+  return "#EF5350";
+}
+
+/**
+ * Path hexagonal que coincide con el CSS clip-path:
+ * polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)
+ */
+function hexPath(ctx, x, y, w, h) {
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.5, y);
+  ctx.lineTo(x + w, y + h * 0.25);
+  ctx.lineTo(x + w, y + h * 0.75);
+  ctx.lineTo(x + w * 0.5, y + h);
+  ctx.lineTo(x, y + h * 0.75);
+  ctx.lineTo(x, y + h * 0.25);
+  ctx.closePath();
+}
+
+/**
+ * Dibuja un badge hexagonal OVR con gradiente por tier.
+ * Retorna la altura real del hex (w * 1.14).
+ */
+function drawOvrHex(ctx, ovr, x, y, w, fontSize) {
+  const h = Math.round(w * 1.14);
+  const [c1, c2] = ovrGradientColors(ovr);
+  const textCol = ovrTextCol(ovr);
+  const inset = Math.max(2, Math.round(w * 0.07));
+
+  // Glow exterior
+  ctx.save();
+  ctx.shadowColor = c2 + "aa";
+  ctx.shadowBlur = w * 0.4;
+  const outerGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+  outerGrad.addColorStop(0, c1);
+  outerGrad.addColorStop(1, c2);
+  hexPath(ctx, x, y, w, h);
+  ctx.fillStyle = outerGrad;
+  ctx.fill();
+  ctx.restore();
+
+  // Interior oscuro
+  hexPath(ctx, x + inset, y + inset, w - inset * 2, h - inset * 2);
+  ctx.fillStyle = "#0F1420";
+  ctx.fill();
+
+  // Número
+  const fs = fontSize || Math.round(w * 0.48);
+  ctx.font = `800 ${fs}px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif`;
+  ctx.fillStyle = textCol;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(ovr), x + w / 2, y + h * 0.51);
+  ctx.textBaseline = "alphabetic";
+
+  return h;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+}
+
+function drawLogo(ctx, img, x, y, size) {
+  if (img) ctx.drawImage(img, x, y, size, size);
+}
+
 function drawTrophy(ctx, img, x, y, h) {
   if (img) ctx.drawImage(img, x, y, h * 0.8, h);
 }
@@ -270,9 +336,8 @@ function fmtValue(mv) {
   return mv >= 1 ? `€${mv}M` : `€${Math.round(mv * 1000)}K`;
 }
 
-/**
- * Genera la imagen resumen de la carrera (canvas listo para exportar).
- */
+// ─── Función principal ─────────────────────────────────────────────────────
+
 export async function generateCareerImage({
   player,
   history,
@@ -295,27 +360,51 @@ export async function generateCareerImage({
   const tPJMax = rows.reduce((s, h) => s + (h.pjMax || 0), 0);
   const tA = rows.reduce((s, h) => s + (isGK ? h.gc || 0 : h.gls), 0);
   const tB = rows.reduce((s, h) => s + (isGK ? h.vi || 0 : h.ast), 0);
+  const ntCaps = rows.reduce((s, h) => s + (h.nt?.caps || 0), 0);
+  const ntA = rows.reduce((s, h) => s + (isGK ? h.nt?.gc || 0 : h.nt?.gls || 0), 0);
+  const ntB = rows.reduce((s, h) => s + (isGK ? h.nt?.vi || 0 : h.nt?.ast || 0), 0);
+  const hasNT = ntCaps > 0;
 
-  const ROW_H = 42;
-  const trophyLines = grouped.length ? Math.ceil(grouped.length / 3) : 0;
-  const trophiesH = trophyLines ? trophyLines * 44 + 10 : 0;
-  const legendH = legend ? 58 : 0;
-  const hasNT = rows.some((r) => r.nt?.caps);
-  const statsH = hasNT ? 74 : 60;
-  const H = PAD + 100 + statsH + trophiesH + 30 + rows.length * ROW_H + legendH + PAD;
+  // ── Métricas de layout ──────────────────────────────────────────────────
+  const HEADER_H = 110;
+  const STATS_H = hasNT ? 90 : 72;
+  const TROPHY_H = grouped.length ? Math.ceil(grouped.length / 4) * 38 + 30 : 0;
+  const ROW_H = 40;
+  const LEGEND_H = legend ? 58 : 0;
+
+  const H =
+    PAD +
+    HEADER_H + 12 +
+    STATS_H + 12 +
+    TROPHY_H + (TROPHY_H ? 12 : 0) +
+    22 +
+    rows.length * ROW_H +
+    (LEGEND_H ? 12 + LEGEND_H : 0) +
+    PAD;
 
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE;
   canvas.height = H * SCALE;
   const ctx = canvas.getContext("2d");
   ctx.scale(SCALE, SCALE);
-  ctx.textBaseline = "middle";
 
-  // fondo
-  ctx.fillStyle = "#0a0a0b";
+  // ── Fondo ───────────────────────────────────────────────────────────────
+  ctx.fillStyle = "#080C14";
   ctx.fillRect(0, 0, W, H);
 
-  // Pre-carga de imágenes
+  // Subtle noise/grid overlay (diagonal lines)
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,.018)";
+  ctx.lineWidth = 0.5;
+  for (let i = -H; i < W + H; i += 28) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i + H, H);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // ── Pre-carga de imágenes ───────────────────────────────────────────────
   const teams = [...new Set(rows.map((r) => r.team).concat(player.team))];
   const leagueOf = {};
   rows.forEach((r) => (leagueOf[r.team] = r.league));
@@ -324,7 +413,6 @@ export async function generateCareerImage({
   const logoImgs = {};
   await Promise.all(
     teams.map(async (t) => {
-      // Escudo real del CDN; si no se puede exportar, escudo SVG con los colores del club
       const real = await loadCrest(logoUrlFor(t));
       logoImgs[t] =
         real ||
@@ -337,294 +425,412 @@ export async function generateCareerImage({
   const flagImg = natData ? await loadImg(`https://flagcdn.com/w40/${natData.c}.png`) : null;
   const trophyImgs = await loadTrophyImages(allTrophies);
 
-  /* ===== Header ===== */
+  /* ═══════════════════════════════════════════════════════════════════════
+     HEADER
+  ═══════════════════════════════════════════════════════════════════════ */
   let y = PAD;
-  // caja OVR
-  const oc = ovrColor(player.overall);
-  const og = ctx.createLinearGradient(PAD, y, PAD + 84, y + 92);
-  og.addColorStop(0, oc);
-  og.addColorStop(1, "#3f3f46");
-  roundRect(ctx, PAD, y, 84, 92, 14);
-  ctx.fillStyle = og;
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,.75)";
-  ctx.font = "700 11px 'Segoe UI', sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("OVR", PAD + 42, y + 24);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "900 40px 'Segoe UI', sans-serif";
-  ctx.fillText(String(player.overall), PAD + 42, y + 58);
 
-  // tarjeta identidad
-  const cardX = PAD + 96;
-  const cardW = W - PAD - cardX;
-  const tint = teamTint(player.team, player.league, 0.22);
-  const cg = ctx.createLinearGradient(cardX, y, cardX + cardW, y + 92);
-  cg.addColorStop(0, tint);
-  cg.addColorStop(0.7, "#131316");
-  roundRect(ctx, cardX, y, cardW, 92, 14);
-  ctx.fillStyle = cg;
+  const HEX_W = 80;
+  const HEX_H = Math.round(HEX_W * 1.14); // 91
+  const hexY = y + Math.round((HEADER_H - HEX_H) / 2);
+
+  // OVR hex grande
+  drawOvrHex(ctx, player.overall, PAD, hexY, HEX_W, Math.round(HEX_W * 0.5));
+
+  // ── Tarjeta de identidad ──────────────────────────────────────────────
+  const cX = PAD + HEX_W + 10;
+  const cY = y;
+  const cW = W - PAD - cX;
+  const cH = HEADER_H;
+  const teamColor = getTeamColor(player.team, player.league);
+  const tintBg = teamTint(player.team, player.league, 0.12);
+  const tintBorder = teamTint(player.team, player.league, 0.28);
+
+  // Fondo con gradiente
+  const cardGrad = ctx.createLinearGradient(cX, cY, cX + cW, cY);
+  cardGrad.addColorStop(0, tintBg);
+  cardGrad.addColorStop(0.75, "#0d1525");
+  roundRect(ctx, cX, cY, cW, cH, 10);
+  ctx.fillStyle = cardGrad;
   ctx.fill();
-  ctx.strokeStyle = teamTint(player.team, player.league, 0.35);
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = tintBorder;
+  ctx.lineWidth = 1;
   ctx.stroke();
 
-  // chips
-  let chipX = cardX + 16;
-  const chipY = y + 26;
-  ctx.font = "800 11px 'Segoe UI', sans-serif";
-  // chip nacionalidad
+  // Overlay radial (top-right)
+  const radGrad = ctx.createRadialGradient(cX + cW, cY, 0, cX + cW, cY, 180);
+  radGrad.addColorStop(0, tintBg.replace ? tintBg : "rgba(255,255,255,.04)");
+  radGrad.addColorStop(1, "rgba(0,0,0,0)");
+  roundRect(ctx, cX, cY, cW, cH, 10);
+  ctx.fillStyle = radGrad;
+  ctx.fill();
+
+  // Borde izquierdo de acento (team color)
+  ctx.fillStyle = teamColor;
+  ctx.fillRect(cX, cY + 10, 3, cH - 20);
+
+  // ── Chips: nacionalidad + posición ──────────────────────────────────
+  let chipX = cX + 15;
+  const chipY = cY + 22;
+  ctx.textBaseline = "middle";
+
   if (natData) {
     const code3 = natData.n.substring(0, 3).toUpperCase();
-    const chipW = 34 + ctx.measureText(code3).width;
-    roundRect(ctx, chipX, chipY - 11, chipW, 22, 5);
-    ctx.fillStyle = "rgba(63,63,70,.85)";
+    ctx.font = "600 10px 'Outfit', 'Segoe UI', sans-serif";
+    const txtW = ctx.measureText(code3).width;
+    const chipW = 8 + 18 + 5 + txtW + 8;
+    roundRect(ctx, chipX, chipY - 10, chipW, 20, 10);
+    ctx.fillStyle = "rgba(255,255,255,.07)";
     ctx.fill();
-    if (flagImg) ctx.drawImage(flagImg, chipX + 7, chipY - 6, 17, 12);
-    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "rgba(255,255,255,.1)";
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    if (flagImg) ctx.drawImage(flagImg, chipX + 8, chipY - 6, 18, 12);
+    ctx.fillStyle = "rgba(255,255,255,.7)";
     ctx.textAlign = "left";
-    ctx.fillText(code3, chipX + 28, chipY + 1);
+    ctx.fillText(code3, chipX + 8 + 18 + 5, chipY);
     chipX += chipW + 8;
   }
-  // chip posición
+
   const posTxt = `#${player.number} ${posData?.s || ""}`;
-  const posW = 16 + ctx.measureText(posTxt).width;
-  roundRect(ctx, chipX, chipY - 11, posW, 22, 5);
-  ctx.fillStyle = getTeamColor(player.team, player.league);
+  ctx.font = "700 10px 'Outfit', 'Segoe UI', sans-serif";
+  const posChipW = 12 + ctx.measureText(posTxt).width + 12;
+  roundRect(ctx, chipX, chipY - 10, posChipW, 20, 10);
+  ctx.fillStyle = teamColor + "30";
   ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(posTxt, chipX + 8, chipY + 1);
+  ctx.strokeStyle = teamColor + "60";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+  ctx.fillStyle = teamColor;
+  ctx.textAlign = "left";
+  ctx.fillText(posTxt, chipX + 12, chipY);
 
-  // apellido + club
-  ctx.font = "800 19px 'Segoe UI', sans-serif";
+  // ── Logo + nombre del club ───────────────────────────────────────────
+  const nameY = cY + 56;
+  drawLogo(ctx, logoImgs[player.team], cX + 15, nameY - 11, 20);
+  ctx.font = "800 18px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
   ctx.fillStyle = "#ffffff";
-  drawLogo(ctx, logoImgs[player.team], player.team, player.league, cardX + 16, y + 44, 24);
-  ctx.fillText(
-    truncate(ctx, `${player.name} · ${player.team}`, cardW - 200),
-    cardX + 48,
-    y + 58
-  );
+  ctx.textAlign = "left";
+  ctx.fillText(truncate(ctx, player.team, cW - 190), cX + 43, nameY);
 
-  // Reputación y moral (dos barras finas bajo el nombre)
+  // ── Barras REP / MOR ─────────────────────────────────────────────────
+  const barLX = cX + 15;
+  const barW = Math.min(148, cW - 190);
   const rep = player.reputation ?? 20;
   const mor = player.morale ?? 70;
-  const barX = cardX + 48;
-  const barW = Math.min(180, cardW - 210);
-  const morColor = mor >= 75 ? "#22c55e" : mor >= 55 ? "#84cc16" : mor >= 40 ? "#eab308" : mor >= 25 ? "#f97316" : "#ef4444";
-  const drawStatBar = (by, label, val, color) => {
-    ctx.font = "700 8px 'Segoe UI', sans-serif";
+
+  const drawStatBar = (bY, label, val, fillColor) => {
+    ctx.font = "700 8px 'Outfit', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.28)";
     ctx.textAlign = "left";
-    ctx.fillStyle = "#71717a";
-    ctx.fillText(label, barX, by + 3);
-    roundRect(ctx, barX + 24, by - 3, barW, 4, 2);
-    ctx.fillStyle = "#3f3f46";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, barLX, bY);
+    const bx = barLX + 30;
+    roundRect(ctx, bx, bY - 1.5, barW, 3, 1.5);
+    ctx.fillStyle = "rgba(255,255,255,.06)";
     ctx.fill();
-    roundRect(ctx, barX + 24, by - 3, (barW * val) / 100, 4, 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.fillStyle = "#a1a1aa";
-    ctx.textAlign = "left";
-    ctx.font = "700 8px 'Segoe UI', sans-serif";
-    ctx.fillText(String(val), barX + 24 + barW + 5, by + 3);
+    if (val > 0) {
+      roundRect(ctx, bx, bY - 1.5, (barW * val) / 100, 3, 1.5);
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+    }
+    ctx.textBaseline = "alphabetic";
   };
-  drawStatBar(y + 74, "REP", rep, "#a78bfa");
-  drawStatBar(y + 84, "MOR", mor, morColor);
 
-  // edad / valor (etiqueta a la izquierda del valor, sin solaparse)
+  drawStatBar(cY + 78, "REP", rep, "#42A5F5");
+  drawStatBar(cY + 93, "MOR", mor, moraleColor(mor));
+
+  // ── Edad / Valor (columna derecha de la tarjeta) ─────────────────────
+  const rX = cX + cW - 14;
+  ctx.textBaseline = "middle";
+
+  ctx.font = "700 8px 'Outfit', 'Segoe UI', sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,.35)";
   ctx.textAlign = "right";
-  ctx.font = "900 22px 'Segoe UI', sans-serif";
-  const ageW = ctx.measureText(String(player.age)).width;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(String(player.age), W - PAD - 16, y + 28);
-  ctx.font = "800 16px 'Segoe UI', sans-serif";
-  const valTxt = fmtValue(marketVal);
-  const valW = ctx.measureText(valTxt).width;
-  ctx.fillStyle = "#fbbf24";
-  ctx.fillText(valTxt, W - PAD - 16, y + 60);
-  ctx.font = "600 10px 'Segoe UI', sans-serif";
-  ctx.fillStyle = "#a1a1aa";
-  ctx.fillText("EDAD", W - PAD - 16 - ageW - 10, y + 30);
-  ctx.fillText("VALOR", W - PAD - 16 - valW - 10, y + 61);
+  ctx.fillText("EDAD", rX, cY + 14);
 
-  /* ===== Totales ===== */
-  y += 100;
-  ctx.strokeStyle = "rgba(63,63,70,.5)";
+  ctx.font = "800 26px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(String(player.age), rX, cY + 36);
+
+  ctx.font = "700 8px 'Outfit', 'Segoe UI', sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,.35)";
+  ctx.fillText("VALOR", rX, cY + 62);
+
+  ctx.font = "700 17px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
+  ctx.fillStyle = "#66BB6A";
+  ctx.fillText(fmtValue(marketVal), rX, cY + 82);
+
+  ctx.textBaseline = "alphabetic";
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     TOTAL DE CARRERA
+  ═══════════════════════════════════════════════════════════════════════ */
+  y = PAD + HEADER_H + 12;
+
+  roundRect(ctx, PAD, y, W - PAD * 2, STATS_H, 10);
+  ctx.fillStyle = "#0d1525";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.06)";
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(PAD, y + 2);
-  ctx.lineTo(W - PAD, y + 2);
-  ctx.moveTo(PAD, y + statsH - 8);
-  ctx.lineTo(W - PAD, y + statsH - 8);
   ctx.stroke();
 
-  const ntCaps = rows.reduce((s, h) => s + (h.nt?.caps || 0), 0);
-  const ntA = rows.reduce((s, h) => s + (isGK ? h.nt?.gc || 0 : h.nt?.gls || 0), 0);
-  const ntB = rows.reduce((s, h) => s + (isGK ? h.nt?.vi || 0 : h.nt?.ast || 0), 0);
+  // Etiqueta
+  ctx.font = "700 9px 'Outfit', 'Segoe UI', sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,.22)";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("TOTAL DE CARRERA", PAD + 14, y + 13);
+  ctx.textBaseline = "alphabetic";
 
-  const cols = [
-    ["PJ", tPJMax ? `${tPJ + ntCaps}/${tPJMax + ntCaps}` : String(tPJ + ntCaps), tPJ, ntCaps],
-    [isGK ? "GC" : "GLS", String(tA + ntA), tA, ntA],
-    [isGK ? "VI" : "AST", String(tB + ntB), tB, ntB],
-  ];
-  cols.forEach(([label, val, clubVal, natVal], i) => {
-    const cx = W / 6 + (i * W) / 3;
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#71717a";
-    ctx.font = "700 10px 'Segoe UI', sans-serif";
-    ctx.fillText(label, cx, y + 14);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "800 20px 'Segoe UI', sans-serif";
-    ctx.fillText(val, cx, y + 33);
-    // Desglose club / selección
-    if (ntCaps > 0) {
-      ctx.font = "700 9px 'Segoe UI', sans-serif";
-      ctx.fillStyle = "#71717a";
-      ctx.fillText(`clubes ${clubVal}`, cx - 26, y + 47);
-      ctx.fillStyle = "#7dd3fc";
-      ctx.fillText(`sel. ${natVal}`, cx + 26, y + 47);
-    }
-  });
-
-  /* ===== Vitrina ===== */
-  y += statsH;
-  if (grouped.length) {
-    let tx = PAD;
-    let ty = y;
-    ctx.font = "700 12px 'Segoe UI', sans-serif";
-    for (const g of grouped) {
-      const label = `${g.n}${g.count > 1 ? ` ×${g.count}` : ""}`;
-      const wChip = 46 + ctx.measureText(label).width;
-      if (tx + wChip > W - PAD) {
-        tx = PAD;
-        ty += 44;
-      }
-      roundRect(ctx, tx, ty, wChip, 34, 17);
-      ctx.fillStyle = "#1c1917";
-      ctx.fill();
-      ctx.strokeStyle = "rgba(240,194,67,.4)";
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-      drawTrophy(ctx, trophyImgs[trophyKey(g)], tx + 11, ty + 5, 24);
-      ctx.fillStyle = "#e4e4e7";
-      ctx.textAlign = "left";
-      ctx.fillText(label, tx + 36, ty + 18);
-      tx += wChip + 10;
-    }
-    y = ty + 44 + 10;
+  // Divisores verticales
+  ctx.strokeStyle = "rgba(255,255,255,.06)";
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 3; i++) {
+    const dx = PAD + ((W - PAD * 2) * i) / 3;
+    ctx.beginPath();
+    ctx.moveTo(dx, y + 20);
+    ctx.lineTo(dx, y + STATS_H - 8);
+    ctx.stroke();
   }
 
-  /* ===== Timeline ===== */
-  // encabezados
-  const colOVR = 470;
-  const colPJ = 566;
-  const colGLS = 632;
-  const colAST = W - PAD;
-  ctx.font = "700 9px 'Segoe UI', sans-serif";
-  ctx.fillStyle = "#71717a";
+  const statCols = [
+    {
+      label: "PJ",
+      val: tPJMax ? `${tPJ + ntCaps}/${tPJMax + ntCaps}` : String(tPJ + ntCaps),
+      club: tPJ,
+      nat: ntCaps,
+    },
+    { label: isGK ? "GC" : "GLS", val: String(tA + ntA), club: tA, nat: ntA },
+    { label: isGK ? "VI" : "AST", val: String(tB + ntB), club: tB, nat: ntB },
+  ];
+
+  statCols.forEach(({ label, val, club, nat }, i) => {
+    const cx = PAD + ((W - PAD * 2) * (i + 0.5)) / 3;
+
+    // Label
+    ctx.font = "700 9px 'Outfit', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.28)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, cx, y + 26);
+
+    // Número grande
+    ctx.font = "800 26px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(val, cx, y + 52);
+
+    // Desglose club / selección
+    if (hasNT) {
+      ctx.font = "600 10px 'Outfit', 'Segoe UI', sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,.38)";
+      ctx.fillText(`clubes ${club}`, cx - 26, y + 73);
+      ctx.fillStyle = "#7dd3fc";
+      ctx.fillText(`sel. ${nat}`, cx + 26, y + 73);
+    }
+
+    ctx.textBaseline = "alphabetic";
+  });
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     VITRINA
+  ═══════════════════════════════════════════════════════════════════════ */
+  y += STATS_H + 12;
+
+  if (grouped.length) {
+    // Etiqueta
+    ctx.font = "700 9px 'Outfit', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.22)";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`VITRINA · ${grouped.length} TROFEO${grouped.length !== 1 ? "S" : ""}`, PAD, y + 10);
+    ctx.textBaseline = "alphabetic";
+
+    let tx = PAD;
+    let ty = y + 22;
+
+    ctx.font = "600 11px 'Outfit', 'Segoe UI', sans-serif";
+
+    for (const g of grouped) {
+      const label = `${g.n}${g.count > 1 ? ` ×${g.count}` : ""}`;
+      const wChip = 36 + ctx.measureText(label).width;
+
+      if (tx + wChip > W - PAD) {
+        tx = PAD;
+        ty += 38;
+      }
+
+      // Chip bg
+      roundRect(ctx, tx, ty, wChip, 30, 15);
+      ctx.fillStyle = "#0d1525";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(201,162,39,.35)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Icono trofeo
+      drawTrophy(ctx, trophyImgs[trophyKey(g)], tx + 8, ty + 3, 24);
+
+      // Texto
+      ctx.fillStyle = "rgba(255,255,255,.72)";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, tx + 33, ty + 15);
+      ctx.textBaseline = "alphabetic";
+
+      tx += wChip + 8;
+    }
+
+    y = ty + 30 + 12;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     TIMELINE — Encabezado de columnas
+  ═══════════════════════════════════════════════════════════════════════ */
+
+  // Posiciones de columnas (right-edge)
+  const OVR_HEX_W = 28;
+  const OVR_HEX_H = Math.round(OVR_HEX_W * 1.14); // 32
+  const OVR_L = 448;        // left edge del hex OVR en filas
+  const PJ_R = 566;
+  const GLS_R = 630;
+  const AST_R = W - PAD;    // 696
+
+  ctx.font = "600 9px 'Outfit', 'Segoe UI', sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,.2)";
   ctx.textAlign = "left";
-  ctx.fillText("EDAD", PAD + 2, y + 8);
-  ctx.fillText("CLUB", PAD + 96, y + 8);
+  ctx.textBaseline = "middle";
+  ctx.fillText("EDAD", PAD + 2, y + 10);
+  ctx.fillText("CLUB", PAD + 62, y + 10);
   ctx.textAlign = "right";
-  ctx.fillText("OVR", colOVR, y + 8);
-  ctx.fillText("PJ", colPJ, y + 8);
-  ctx.fillText(isGK ? "GC" : "GLS", colGLS, y + 8);
-  ctx.fillText(isGK ? "VI" : "AST", colAST, y + 8);
-  y += 22;
+  ctx.fillText("OVR", OVR_L + OVR_HEX_W, y + 10);
+  ctx.fillText("PJ", PJ_R, y + 10);
+  ctx.fillText(isGK ? "GC" : "GLS", GLS_R, y + 10);
+  ctx.fillText(isGK ? "VI" : "AST", AST_R, y + 10);
+  ctx.textBaseline = "alphabetic";
+
+  y += 20;
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     TIMELINE — Filas
+  ═══════════════════════════════════════════════════════════════════════ */
 
   for (const row of rows) {
     const tColor = getTeamColor(row.team, row.league);
-    const rTint = teamTint(row.team, row.league, 0.18);
+    const rTint = teamTint(row.team, row.league, 0.15);
+    const rBorder = teamTint(row.team, row.league, 0.25);
+    const cy = y + ROW_H / 2 - 1;
+
+    // Fondo con gradiente horizontal
     const rg = ctx.createLinearGradient(PAD, y, W - PAD, y);
     rg.addColorStop(0, rTint);
-    rg.addColorStop(0.85, "rgba(19,19,22,.9)");
-    roundRect(ctx, PAD, y, W - PAD * 2, ROW_H - 6, 9);
+    rg.addColorStop(0.8, "#0d152588");
+    roundRect(ctx, PAD + 3, y + 1, W - PAD * 2 - 3, ROW_H - 3, 8);
     ctx.fillStyle = rg;
     ctx.fill();
-    ctx.strokeStyle = teamTint(row.team, row.league, 0.3);
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = rBorder;
+    ctx.lineWidth = 0.8;
     ctx.stroke();
 
-    const cy = y + (ROW_H - 6) / 2;
-
-    // edad
-    roundRect(ctx, PAD + 8, cy - 12, 34, 24, 6);
+    // Borde izquierdo 3px (team color)
+    roundRect(ctx, PAD, y + 1, 3, ROW_H - 3, [2, 0, 0, 2]);
     ctx.fillStyle = tColor;
     ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "900 13px 'Segoe UI', sans-serif";
+
+    // Edad (Barlow Condensed, sin badge)
+    ctx.font = "700 15px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.45)";
     ctx.textAlign = "center";
-    ctx.fillText(String(row.age), PAD + 25, cy + 1);
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(row.age), PAD + 22, cy);
 
-    // escudo + club
-    drawLogo(ctx, logoImgs[row.team], row.team, row.league, PAD + 54, cy - 11, 22);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "800 14px 'Segoe UI', sans-serif";
+    // Logo del club
+    drawLogo(ctx, logoImgs[row.team], PAD + 40, cy - 9, 18);
+
+    // Nombre del club
+    ctx.font = "500 13px 'Outfit', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.75)";
     ctx.textAlign = "left";
-    const name = truncate(ctx, row.team, 240);
-    ctx.fillText(name, PAD + 84, cy + 1);
+    const maxNameW = OVR_L - (PAD + 66) - 8;
+    const nameStr = truncate(ctx, row.team, maxNameW);
+    ctx.fillText(nameStr, PAD + 66, cy);
 
-    // trofeos de la temporada (mismos íconos que en la app)
-    let cupX = PAD + 84 + ctx.measureText(name).width + 8;
+    // Trofeos inline (tras el nombre)
+    const nameW = ctx.measureText(nameStr).width;
+    let cupX = PAD + 66 + nameW + 5;
     for (const t of row.trophies || []) {
-      drawTrophy(ctx, trophyImgs[trophyKey(t)], cupX, cy - 9, 18);
-      cupX += 17;
+      if (cupX + 13 < OVR_L - 4) {
+        drawTrophy(ctx, trophyImgs[trophyKey(t)], cupX, cy - 8, 16);
+        cupX += 13;
+      }
     }
 
-    // OVR
-    roundRect(ctx, colOVR - 34, cy - 11, 34, 22, 6);
-    ctx.fillStyle = ovrColor(row.ovr);
-    ctx.fill();
-    ctx.fillStyle = ovrTextColor(row.ovr);
-    ctx.font = "900 12px 'Segoe UI', sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(String(row.ovr), colOVR - 17, cy + 1);
+    // OVR hex pequeño
+    drawOvrHex(ctx, row.ovr, OVR_L, cy - OVR_HEX_H / 2, OVR_HEX_W, 12);
 
-    // stats
+    // Stats
+    ctx.font = "700 12px 'Outfit', 'Segoe UI', sans-serif";
     ctx.fillStyle = "#d4d4d8";
-    ctx.font = "700 12px 'Segoe UI', sans-serif";
     ctx.textAlign = "right";
-    ctx.fillText(row.pjMax ? `${row.pj}/${row.pjMax}` : String(row.pj), colPJ, cy + 1);
-    ctx.fillText(String(isGK ? row.gc : row.gls), colGLS, cy + 1);
-    ctx.fillText(String(isGK ? row.vi : row.ast), colAST, cy + 1);
+    ctx.fillText(row.pjMax ? `${row.pj}/${row.pjMax}` : String(row.pj), PJ_R, cy);
+    ctx.fillText(String(isGK ? row.gc : row.gls), GLS_R, cy);
+    ctx.fillText(String(isGK ? row.vi : row.ast), AST_R, cy);
 
+    ctx.textBaseline = "alphabetic";
     y += ROW_H;
   }
 
-  /* ===== Puntaje de leyenda ===== */
+  /* ═══════════════════════════════════════════════════════════════════════
+     PUNTAJE DE LEYENDA
+  ═══════════════════════════════════════════════════════════════════════ */
   if (legend) {
-    y += 8;
-    roundRect(ctx, PAD, y, W - PAD * 2, 44, 12);
-    ctx.fillStyle = "rgba(0,0,0,.4)";
+    y += 12;
+    roundRect(ctx, PAD, y, W - PAD * 2, LEGEND_H - 2, 12);
+    ctx.fillStyle = "#0d1525";
     ctx.fill();
-    ctx.strokeStyle = `${legend.color}55`;
+    ctx.strokeStyle = (legend.color || "#C9A227") + "55";
     ctx.lineWidth = 1.4;
     ctx.stroke();
 
+    ctx.textBaseline = "middle";
     ctx.textAlign = "left";
-    ctx.fillStyle = "#71717a";
-    ctx.font = "800 9px 'Segoe UI', sans-serif";
+
+    ctx.font = "700 9px 'Outfit', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.3)";
     ctx.fillText("PUNTAJE DE LEYENDA", PAD + 16, y + 15);
-    ctx.fillStyle = legend.color;
-    ctx.font = "900 16px 'Segoe UI', sans-serif";
-    ctx.fillText(legend.title, PAD + 16, y + 31);
 
-    // barra de progreso
-    const barX = PAD + 200;
-    const barW = W - PAD * 2 - 200 - 90;
-    roundRect(ctx, barX, y + 19, barW, 8, 4);
-    ctx.fillStyle = "#27272a";
-    ctx.fill();
-    roundRect(ctx, barX, y + 19, (barW * legend.score) / 100, 8, 4);
-    ctx.fillStyle = legend.color;
+    ctx.font = "900 18px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
+    ctx.fillStyle = legend.color || "#C9A227";
+    ctx.fillText(legend.title, PAD + 16, y + 36);
+
+    // Barra de progreso
+    const bX = PAD + 200;
+    const bW = W - PAD * 2 - 200 - 88;
+    roundRect(ctx, bX, y + 28, bW, 6, 3);
+    ctx.fillStyle = "#1e2840";
     ctx.fill();
 
+    const fillPct = Math.max(0, Math.min(1, (legend.score || 0) / 100));
+    if (fillPct > 0) {
+      const barGrad = ctx.createLinearGradient(bX, 0, bX + bW * fillPct, 0);
+      barGrad.addColorStop(0, (legend.color || "#92750B"));
+      barGrad.addColorStop(1, (legend.color || "#C9A227"));
+      roundRect(ctx, bX, y + 28, bW * fillPct, 6, 3);
+      ctx.fillStyle = barGrad;
+      ctx.fill();
+    }
+
+    // Score
     ctx.textAlign = "right";
-    ctx.fillStyle = legend.color;
-    ctx.font = "900 26px 'Segoe UI', sans-serif";
-    ctx.fillText(String(legend.score), W - PAD - 42, y + 24);
-    ctx.fillStyle = "#52525b";
-    ctx.font = "800 13px 'Segoe UI', sans-serif";
-    ctx.fillText("/100", W - PAD - 14, y + 26);
+    ctx.font = "900 28px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
+    ctx.fillStyle = legend.color || "#C9A227";
+    ctx.fillText(String(legend.score), W - PAD - 36, y + 30);
+
+    ctx.font = "700 13px 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.28)";
+    ctx.fillText("/100", W - PAD - 12, y + 33);
+
+    ctx.textBaseline = "alphabetic";
   }
 
   return canvas;

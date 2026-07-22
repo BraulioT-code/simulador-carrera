@@ -1,16 +1,49 @@
 import Trophy from "./Trophy";
 
+/** Color del box según tipo de trofeo */
+function trophyBoxStyle(type) {
+  if (type === "balon") {
+    return {
+      background: "rgba(255,215,0,.08)",
+      border: "1px solid rgba(255,215,0,.18)",
+    };
+  }
+  if (type === "champions" || type === "copa") {
+    return {
+      background: "rgba(156,39,176,.08)",
+      border: "1px solid rgba(156,39,176,.18)",
+    };
+  }
+  // liga / default: dorado
+  return {
+    background: "rgba(201,162,39,.08)",
+    border: "1px solid rgba(201,162,39,.18)",
+  };
+}
+
 /**
- * Vitrina: agrupa trofeos repetidos y muestra cada uno con su nombre
- * (ej: "Liga BetPlay ×2", "Champions League", "Balón de Oro").
+ * Vitrina: agrupa trofeos repetidos y muestra cada uno con su nombre — estilo 1b.
  */
 export default function TrophyCabinet({ trophies }) {
   if (trophies.length === 0) {
     return (
-      <div className="mb-2 px-1 py-2 text-center opacity-40">
-        <Trophy type="liga" size={20} />
-        <div className="mt-1 text-[10px] font-semibold tracking-widest text-zinc-500">
-          VITRINA VACÍA
+      <div
+        className="mb-2"
+        style={{
+          background: "rgba(255,255,255,.025)",
+          border: "1px solid rgba(255,255,255,.06)",
+          borderRadius: 10,
+          padding: "10px 14px",
+          textAlign: "center",
+          opacity: 0.4,
+        }}
+      >
+        <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+          Vitrina
+        </div>
+        <Trophy type="liga" size={18} />
+        <div style={{ marginTop: 4, fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.3)", letterSpacing: "0.12em" }}>
+          VACÍA
         </div>
       </div>
     );
@@ -25,16 +58,61 @@ export default function TrophyCabinet({ trophies }) {
   }
 
   return (
-    <div className="mb-2 flex flex-wrap items-end justify-start gap-x-3 gap-y-2 px-1 py-2">
-      {grouped.map((g, i) => (
-        <div key={i} className="flex w-14 flex-col items-center text-center">
-          <Trophy type={g.t} name={g.n} size={26} />
-          <div className="mt-1 text-[8px] font-semibold leading-tight text-zinc-400">
-            {g.n}
-            {g.count > 1 && <span className="ml-0.5 font-black text-white">×{g.count}</span>}
+    <div
+      className="mb-2"
+      style={{
+        background: "rgba(255,255,255,.025)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: 10,
+        padding: "10px 14px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 600,
+          color: "rgba(255,255,255,.3)",
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom: 10,
+        }}
+      >
+        Vitrina · {trophies.length} {trophies.length === 1 ? "Trofeo" : "Trofeos"}
+      </div>
+      <div className="grid grid-cols-5 gap-x-2 gap-y-3">
+        {grouped.map((g, i) => (
+          <div key={i} className="flex flex-col items-center text-center">
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 8,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                ...trophyBoxStyle(g.t),
+              }}
+            >
+              <Trophy type={g.t} name={g.n} size={24} />
+            </div>
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 8,
+                fontWeight: 500,
+                lineHeight: 1.3,
+                color: "rgba(255,255,255,.35)",
+                width: "100%",
+              }}
+            >
+              {g.n}
+              {g.count > 1 && (
+                <span style={{ marginLeft: 2, fontWeight: 800, color: "#fff" }}>×{g.count}</span>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
