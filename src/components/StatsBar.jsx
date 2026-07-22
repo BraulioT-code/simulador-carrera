@@ -2,27 +2,43 @@ import { IconMatches, IconBall, IconAssist, IconGoalConceded, IconCleanSheet } f
 import Flag from "./Flag";
 import CountUp, { SEQ } from "./CountUp";
 
-/**
- * Valor animado; soporta el formato "jugados/posibles".
- * Anima desde el total anterior, así se ve el incremento de la temporada.
- */
-function StatValue({ value, delay = 0 }) {
-  if (typeof value === "string" && value.includes("/")) {
-    const [a, b] = value.split("/");
-    return (
-      <>
-        <CountUp value={a} fromPrevious duration={700} delay={delay} />
-        <span className="opacity-60">/</span>
-        <CountUp value={b} fromPrevious duration={700} delay={delay} />
-      </>
+function StatValue({ value, delay = 0, big = false }) {
+  const style = big
+    ? {
+        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontWeight: 800,
+        fontSize: 26,
+        color: "#fff",
+        lineHeight: 1,
+      }
+    : {
+        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontWeight: 600,
+        fontSize: 13,
+        color: "rgba(255,255,255,.6)",
+      };
+
+  const content =
+    typeof value === "string" && value.includes("/") ? (
+      (() => {
+        const [a, b] = value.split("/");
+        return (
+          <>
+            <CountUp value={a} fromPrevious duration={700} delay={delay} />
+            <span style={{ opacity: 0.4 }}>/</span>
+            <CountUp value={b} fromPrevious duration={700} delay={delay} />
+          </>
+        );
+      })()
+    ) : (
+      <CountUp value={value} fromPrevious duration={700} delay={delay} />
     );
-  }
-  return <CountUp value={value} fromPrevious duration={700} delay={delay} />;
+
+  return <span style={style}>{content}</span>;
 }
 
 /**
- * Totales de carrera con desglose club / selección.
- * Si el jugador nunca fue convocado, muestra solo la fila de totales.
+ * Totales de carrera — estilo 1b: números grandes centrados con divisores verticales.
  */
 export default function StatsBar({
   pj,
@@ -43,87 +59,110 @@ export default function StatsBar({
 
   const labels = ["PJ", isGK ? "GC" : "GLS", isGK ? "VI" : "AST"];
   const icons = [
-    <IconMatches size={12} key="pj" />,
-    isGK ? <IconGoalConceded size={12} key="a" /> : <IconBall size={12} key="a" />,
-    isGK ? <IconCleanSheet size={12} key="b" /> : <IconAssist size={12} key="b" />,
+    <IconMatches size={11} key="pj" />,
+    isGK ? <IconGoalConceded size={11} key="a" /> : <IconBall size={11} key="a" />,
+    isGK ? <IconCleanSheet size={11} key="b" /> : <IconAssist size={11} key="b" />,
   ];
 
-  const club = [pjMax ? `${pj}/${pjMax}` : `${pj}`, isGK ? gc : gls, isGK ? vi : ast];
-  const nat = [ntCaps, isGK ? ntGc : ntGls, isGK ? ntVi : ntAst];
-  const total = [
+  const clubVals = [pjMax ? `${pj}/${pjMax}` : `${pj}`, isGK ? gc : gls, isGK ? vi : ast];
+  const natVals = [ntCaps, isGK ? ntGc : ntGls, isGK ? ntVi : ntAst];
+  const totalVals = [
     pjMax ? `${pj + ntCaps}/${pjMax + ntCaps}` : `${pj + ntCaps}`,
     (isGK ? gc : gls) + (isGK ? ntGc : ntGls),
     (isGK ? vi : ast) + (isGK ? ntVi : ntAst),
   ];
 
-  const Cell = ({ children, strong }) => (
-    <div
-      className={`text-center ${
-        strong ? "text-[15px] font-extrabold text-white" : "text-[12px] font-bold text-zinc-300"
-      }`}
-    >
-      {children}
-    </div>
-  );
+  const delays = [SEQ.pj, SEQ.gls, SEQ.ast];
 
   return (
-    <div className="mb-2 border-y border-zinc-800/60 py-2">
-      {/* Encabezado de columnas */}
-      <div className="grid grid-cols-[54px_1fr_1fr_1fr] items-center gap-1">
-        <div />
-        {labels.map((l, i) => (
-          <div
-            key={l}
-            className="flex items-center justify-center gap-1 text-[9px] font-bold tracking-wider text-zinc-500"
-          >
-            {icons[i]}
-            {l}
+    <div
+      className="mb-2"
+      style={{
+        background: "rgba(255,255,255,.025)",
+        border: "1px solid rgba(255,255,255,.06)",
+        borderRadius: 10,
+        padding: "12px 14px",
+      }}
+    >
+      {/* Label */}
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 600,
+          color: "rgba(255,255,255,.3)",
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom: 10,
+        }}
+      >
+        Total de Carrera
+      </div>
+
+      {/* Stats principales con divisores */}
+      <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
+        {labels.map((label, i) => (
+          <div key={label} style={{ display: "flex", alignItems: "stretch" }}>
+            {i > 0 && (
+              <div style={{ width: 1, background: "rgba(255,255,255,.06)", marginRight: 16 }} />
+            )}
+            <div style={{ paddingLeft: i > 0 ? 0 : 0 }}>
+              <div style={{ marginBottom: 2 }}>
+                <StatValue value={totalVals[i]} delay={delays[i] + (hasNT ? 240 : 0)} big />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,.3)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginTop: 2,
+                }}
+              >
+                {icons[i]}
+                {label}
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
-      {hasNT ? (
-        <>
+      {/* Desglose club / selección (si hay caps de selección) */}
+      {hasNT && (
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 8,
+            borderTop: "1px solid rgba(255,255,255,.05)",
+            display: "grid",
+            gridTemplateColumns: "52px 1fr 1fr 1fr",
+            gap: 4,
+            alignItems: "center",
+          }}
+        >
           {/* Club */}
-          <div className="mt-1 grid grid-cols-[54px_1fr_1fr_1fr] items-center gap-1">
-            <div className="text-[9px] font-bold tracking-wide text-zinc-500">CLUBES</div>
-            {club.map((v, i) => (
-              <Cell key={i}>
-                <StatValue value={v} delay={[SEQ.pj, SEQ.gls, SEQ.ast][i]} />
-              </Cell>
-            ))}
+          <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            Clubes
           </div>
+          {clubVals.map((v, i) => (
+            <div key={i} style={{ textAlign: "center" }}>
+              <StatValue value={v} delay={delays[i]} />
+            </div>
+          ))}
 
           {/* Selección */}
-          <div className="mt-0.5 grid grid-cols-[54px_1fr_1fr_1fr] items-center gap-1">
-            <div className="flex items-center gap-1 text-[9px] font-bold tracking-wide text-sky-300">
-              <Flag code={natCode} className="w-4 h-[11px]" />
-              SEL.
+          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 600, color: "#42A5F5", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            <Flag code={natCode} className="w-4 h-[11px]" />
+            Sel.
+          </div>
+          {natVals.map((v, i) => (
+            <div key={i} style={{ textAlign: "center", color: "#42A5F5" }}>
+              <StatValue value={v} delay={delays[i] + 120} />
             </div>
-            {nat.map((v, i) => (
-              <div key={i} className="text-center text-[12px] font-bold text-sky-300">
-                <StatValue value={v} delay={[SEQ.pj, SEQ.gls, SEQ.ast][i] + 120} />
-              </div>
-            ))}
-          </div>
-
-          {/* Total */}
-          <div className="mt-1 grid grid-cols-[54px_1fr_1fr_1fr] items-center gap-1 border-t border-zinc-800/60 pt-1">
-            <div className="text-[9px] font-black tracking-wide text-zinc-400">TOTAL</div>
-            {total.map((v, i) => (
-              <Cell key={i} strong>
-                <StatValue value={v} delay={[SEQ.pj, SEQ.gls, SEQ.ast][i] + 240} />
-              </Cell>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="mt-1 grid grid-cols-[54px_1fr_1fr_1fr] items-center gap-1">
-          <div className="text-[9px] font-black tracking-wide text-zinc-400">TOTAL</div>
-          {club.map((v, i) => (
-            <Cell key={i} strong>
-              <StatValue value={v} delay={[SEQ.pj, SEQ.gls, SEQ.ast][i]} />
-            </Cell>
           ))}
         </div>
       )}

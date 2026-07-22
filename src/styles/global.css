@@ -1,10 +1,15 @@
 @import "tailwindcss";
 
 body {
-  background: #0a0a0b;
+  background: #080C14;
   color: #fff;
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Outfit", "Inter", system-ui, -apple-system, sans-serif;
   min-height: 100vh;
+}
+
+/* Fuente display para números grandes (OVR, stats) */
+.font-display {
+  font-family: "Barlow Condensed", "Inter", system-ui, sans-serif;
 }
 
 /* Ocultar flechas de inputs numéricos */
@@ -53,6 +58,16 @@ input[inputmode="numeric"] {
 
 .delta-pop {
   animation: deltaPop 0.5s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+/* Pulso de brillo en el badge OVR hex */
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px var(--glow, rgba(201,162,39,.3))); }
+  50%       { filter: drop-shadow(0 0 14px var(--glow, rgba(201,162,39,.6))); }
+}
+
+.glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
 }
 
 /* Celebración de trofeo */

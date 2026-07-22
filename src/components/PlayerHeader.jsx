@@ -1,4 +1,4 @@
-import { ovrColor, ovrTextColor } from "../utils/helpers";
+import { ovrTier } from "../utils/helpers";
 import { getTeamColor, teamTint } from "../data";
 import Flag from "./Flag";
 import ClubLogo from "./ClubLogo";
@@ -7,33 +7,67 @@ import CountUp, { DeltaBadge, SEQ } from "./CountUp";
 
 /** Color de la moral: rojo (bajo) → ámbar → verde (alto) */
 function moraleColor(v) {
-  if (v >= 75) return "#22c55e";
+  if (v >= 75) return "#66BB6A";
   if (v >= 55) return "#84cc16";
   if (v >= 40) return "#eab308";
   if (v >= 25) return "#f97316";
-  return "#ef4444";
+  return "#EF5350";
 }
 
-/** Barra fina de estadística 0-100 con etiqueta */
-function StatBar({ label, value, color }) {
+/** Barra fina de estadística — estilo 1b */
+function StatBar({ label, value, barColor }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="w-6 shrink-0 text-[7px] font-black tracking-wider text-zinc-500 lg:text-[8px]">
+      <span
+        style={{
+          width: 24,
+          fontSize: 9,
+          fontWeight: 600,
+          color: "rgba(255,255,255,.3)",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          flexShrink: 0,
+        }}
+      >
         {label}
       </span>
-      <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-800">
+      <div
+        style={{
+          flex: 1,
+          height: 3,
+          background: "rgba(255,255,255,.06)",
+          borderRadius: 2,
+          overflow: "hidden",
+        }}
+      >
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${value}%`, background: color }}
+          style={{
+            width: `${value}%`,
+            height: "100%",
+            background: barColor,
+            borderRadius: 2,
+            transition: "width 0.5s ease",
+          }}
         />
       </div>
-      <span className="w-5 shrink-0 text-right text-[8px] font-bold text-zinc-400">{value}</span>
+      <span
+        style={{
+          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontWeight: 700,
+          fontSize: 12,
+          color: "rgba(255,255,255,.5)",
+          width: 20,
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
 
 export default function PlayerHeader({ player, natData, posData, marketVal }) {
-  // Diferencia de OVR respecto a la temporada anterior (se muestra unos segundos)
   const prevOvr = useRef(player.overall);
   const [delta, setDelta] = useState(0);
 
@@ -48,105 +82,201 @@ export default function PlayerHeader({ player, natData, posData, marketVal }) {
 
   const isFree = player.team === "Libre";
   const teamColor = isFree ? "#7c3aed" : getTeamColor(player.team, player.league);
-  const tint = isFree ? "rgba(124,58,237,.14)" : teamTint(player.team, player.league, 0.22);
   const tintBorder = isFree ? "rgba(124,58,237,.3)" : teamTint(player.team, player.league, 0.35);
-  const tintStrong = isFree ? "rgba(124,58,237,.4)" : teamTint(player.team, player.league, 0.55);
+  const tintBg = isFree ? "rgba(124,58,237,.08)" : teamTint(player.team, player.league, 0.1);
+
+  const { gradient, textColor, glow } = ovrTier(player.overall);
+  const hexW = 72;
+  const hexH = Math.round(hexW * 1.14);
+  const hexInset = Math.max(2, Math.round(hexW * 0.07));
 
   return (
-    <div className="mb-2 flex items-stretch gap-2">
-      {/* OVR grande */}
+    <div
+      className="mb-2 flex items-stretch gap-3"
+      style={{
+        background: `linear-gradient(135deg, ${tintBg}, rgba(15,20,32,.95) 70%)`,
+        border: `1px solid ${tintBorder}`,
+        borderRadius: 12,
+        padding: "16px 16px 14px",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Overlay radial del color del club */}
       <div
-        className="flex w-[64px] shrink-0 flex-col items-center justify-center rounded-xl lg:w-[86px]"
         style={{
-          background: `linear-gradient(160deg, ${ovrColor(player.overall)}cc, #3f3f46)`,
+          position: "absolute",
+          top: 0,
+          right: 0,
+          width: 180,
+          height: 180,
+          background: `radial-gradient(circle at top right, ${tintBg.replace("0.1", "0.12")}, transparent 70%)`,
+          pointerEvents: "none",
         }}
+      />
+
+      {/* OVR hexagonal con glow pulsante + DeltaBadge debajo */}
+      <div
+        className="shrink-0 flex flex-col items-center gap-1"
+        style={{ width: hexW }}
       >
-        <div className="text-[9px] font-bold tracking-wider text-white/70 lg:text-[10px]">OVR</div>
         <div
-          className="text-2xl font-black leading-none text-white lg:text-4xl"
-          style={{ textShadow: "0 2px 4px rgba(0,0,0,.55)" }}
+          className="glow-pulse"
+          style={{ width: hexW, height: hexH, position: "relative", "--glow": glow }}
         >
-          <CountUp
-            value={player.overall}
-            fromPrevious
-            duration={900}
-            delay={SEQ.ovrMain}
+          <span
+            style={{
+              position: "absolute",
+              inset: 0,
+              clipPath: "polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)",
+              background: gradient,
+              display: "block",
+            }}
           />
+          <span
+            style={{
+              position: "absolute",
+              inset: hexInset,
+              clipPath: "polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)",
+              background: "linear-gradient(160deg,#0F1420,#151D2E)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                fontWeight: 800,
+                fontSize: 34,
+                color: textColor,
+                lineHeight: 1,
+              }}
+            >
+              <CountUp value={player.overall} fromPrevious duration={900} delay={SEQ.ovrMain} />
+            </span>
+            <span
+              style={{
+                fontFamily: "'Outfit', system-ui, sans-serif",
+                fontWeight: 600,
+                fontSize: 7,
+                color: `${textColor}80`,
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+                marginTop: -2,
+              }}
+            >
+              OVR
+            </span>
+          </span>
         </div>
-        <DeltaBadge delta={delta} className="mt-1" />
+        <DeltaBadge delta={delta} />
       </div>
 
-      {/* Tarjeta de identidad, sombreada con el color del club */}
-      <div
-        className="flex flex-1 items-center justify-between rounded-xl px-3 py-2 lg:px-3.5 lg:py-2.5"
-        style={{
-          background: `linear-gradient(135deg, ${tint}, #131316 70%)`,
-          border: `1px solid ${tintBorder}`,
-        }}
-      >
-        <div className="min-w-0">
-          <div className="mb-1 flex flex-wrap items-center gap-1.5 lg:mb-1.5">
-            {natData && (
-              <span className="flex items-center gap-1 rounded bg-zinc-700/80 px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide lg:text-[10px]">
-                <Flag code={natData.c} className="w-4 h-[11px]" />
-                {natData.n.substring(0, 3).toUpperCase()}
-              </span>
-            )}
+      {/* Identidad del jugador */}
+      <div className="relative flex min-w-0 flex-1 flex-col justify-between">
+        {/* Chips */}
+        <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+          {natData && (
             <span
-              className="rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide text-white lg:text-[10px]"
-              style={{ background: teamColor, textShadow: "0 1px 2px rgba(0,0,0,.45)" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 10px",
+                background: "rgba(255,255,255,.06)",
+                border: "1px solid rgba(255,255,255,.08)",
+                borderRadius: 16,
+                fontSize: 11,
+                fontWeight: 500,
+                color: "rgba(255,255,255,.7)",
+              }}
             >
-              #{player.number} {posData?.s}
+              <Flag code={natData.c} className="w-4 h-[11px]" />
+              {natData.n.substring(0, 3).toUpperCase()}
             </span>
-          </div>
-          <div className="flex min-w-0 items-center gap-1.5 lg:gap-2">
-            <ClubLogo team={player.team} league={player.league} size={20} />
-            <span
-              className={`truncate text-sm font-extrabold lg:text-base ${isFree ? "text-zinc-400" : ""}`}
-            >
-              {player.team}
-            </span>
-          </div>
-
-          {/* Reputación y moral */}
-          <div className="mt-1.5 flex flex-col gap-1">
-            <StatBar label="REP" value={player.reputation ?? 20} color="#a78bfa" />
-            <StatBar label="MOR" value={player.morale ?? 70} color={moraleColor(player.morale ?? 70)} />
-          </div>
+          )}
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "3px 10px",
+              background: `${teamColor}26`,
+              border: `1px solid ${teamColor}44`,
+              borderRadius: 16,
+              fontSize: 11,
+              fontWeight: 600,
+              color: teamColor,
+            }}
+          >
+            #{player.number} {posData?.s}
+          </span>
         </div>
 
-        <div className="ml-2 shrink-0 text-right">
-          <div className="text-[8px] font-semibold text-zinc-400 lg:text-[9px]">
-            EDAD <span className="ml-1 text-base font-black text-white lg:text-lg">{player.age}</span>
+        {/* Club */}
+        <div className="mb-2 flex min-w-0 items-center gap-1.5">
+          <ClubLogo team={player.team} league={player.league} size={18} />
+          <span
+            className="truncate text-sm font-extrabold"
+            style={{ color: isFree ? "rgba(255,255,255,.4)" : "#fff" }}
+          >
+            {player.team}
+          </span>
+        </div>
+
+        {/* Barras REP / MOR */}
+        <div className="flex flex-col gap-1">
+          <StatBar
+            label="REP"
+            value={player.reputation ?? 20}
+            barColor="linear-gradient(90deg,#1565C0,#42A5F5)"
+          />
+          <StatBar
+            label="MOR"
+            value={player.morale ?? 70}
+            barColor={`linear-gradient(90deg,${moraleColor((player.morale ?? 70) - 10)},${moraleColor(player.morale ?? 70)})`}
+          />
+        </div>
+      </div>
+
+      {/* Edad + Valor */}
+      <div className="relative flex shrink-0 flex-col justify-between text-right">
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.35)" }}>EDAD</div>
+          <div
+            style={{
+              fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+              fontWeight: 800,
+              fontSize: 22,
+              color: "#fff",
+              lineHeight: 1.1,
+            }}
+          >
+            {player.age}
           </div>
-          <div className="text-[8px] font-semibold text-zinc-400 lg:text-[9px]">
-            VALOR{" "}
-            <span className="ml-1 text-[13px] font-extrabold text-amber-400 lg:text-sm">
-              {marketVal >= 1 ? (
-                <>
-                  €
-                  <CountUp
-                    value={marketVal}
-                    fromPrevious
-                    decimals={1}
-                    duration={800}
-                    delay={SEQ.value}
-                  />
-                  M
-                </>
-              ) : (
-                <>
-                  €
-                  <CountUp
-                    value={Math.round(marketVal * 1000)}
-                    fromPrevious
-                    duration={800}
-                    delay={SEQ.value}
-                  />
-                  K
-                </>
-              )}
-            </span>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.35)" }}>VALOR</div>
+          <div
+            style={{
+              fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+              fontWeight: 700,
+              fontSize: 16,
+              color: "#66BB6A",
+              lineHeight: 1.1,
+            }}
+          >
+            {marketVal >= 1 ? (
+              <>
+                €<CountUp value={marketVal} fromPrevious decimals={1} duration={800} delay={SEQ.value} />M
+              </>
+            ) : (
+              <>
+                €<CountUp value={Math.round(marketVal * 1000)} fromPrevious duration={800} delay={SEQ.value} />K
+              </>
+            )}
           </div>
         </div>
       </div>

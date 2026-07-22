@@ -18,18 +18,71 @@ export const pickWeighted = (arr) => {
 /** Clamp: limita un valor entre lo y hi */
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-/** Color de fondo según OVR (estilo dorado/plateado/bronce) */
+/**
+ * Sistema de tiers OVR estilo EA Sports FC.
+ * Devuelve { gradient, textColor, glow } para el badge hexagonal.
+ */
+export function ovrTier(ovr) {
+  if (ovr >= 96) return {
+    gradient: "linear-gradient(160deg,#AD1457,#EC407A)",
+    textColor: "#EC407A",
+    glow: "rgba(236,64,122,.45)",
+  };
+  if (ovr >= 90) return {
+    gradient: "linear-gradient(160deg,#6A1B9A,#AB47BC)",
+    textColor: "#AB47BC",
+    glow: "rgba(171,71,188,.45)",
+  };
+  if (ovr >= 83) return {
+    gradient: "linear-gradient(160deg,#1565C0,#42A5F5)",
+    textColor: "#42A5F5",
+    glow: "rgba(66,165,245,.45)",
+  };
+  if (ovr >= 77) return {
+    gradient: "linear-gradient(160deg,#2E7D32,#66BB6A)",
+    textColor: "#66BB6A",
+    glow: "rgba(102,187,106,.4)",
+  };
+  if (ovr >= 70) return {
+    gradient: "linear-gradient(160deg,#92750B,#C9A227)",
+    textColor: "#C9A227",
+    glow: "rgba(201,162,39,.4)",
+  };
+  if (ovr >= 63) return {
+    gradient: "linear-gradient(160deg,#6B7280,#9CA3AF)",
+    textColor: "#9CA3AF",
+    glow: "rgba(156,163,175,.3)",
+  };
+  if (ovr >= 55) return {
+    gradient: "linear-gradient(160deg,#8B6914,#CD7F32)",
+    textColor: "#CD7F32",
+    glow: "rgba(205,127,50,.35)",
+  };
+  return {
+    gradient: "linear-gradient(160deg,#7B5B2A,#A67C3D)",
+    textColor: "#A67C3D",
+    glow: "rgba(166,124,61,.3)",
+  };
+}
+
+/**
+ * Color sólido de fondo según OVR — para uso en Canvas (careerImage).
+ * Devuelve el color más oscuro del gradiente del tier.
+ */
 export function ovrColor(ovr) {
-  if (ovr >= 90) return "#c026d3";
-  if (ovr >= 80) return "#eab308";
-  if (ovr >= 65) return "#64748b";
-  if (ovr >= 50) return "#92400e";
-  return "#7f1d1d";
+  if (ovr >= 96) return "#AD1457";
+  if (ovr >= 90) return "#6A1B9A";
+  if (ovr >= 83) return "#1565C0";
+  if (ovr >= 77) return "#2E7D32";
+  if (ovr >= 70) return "#92750B";
+  if (ovr >= 63) return "#6B7280";
+  if (ovr >= 55) return "#8B6914";
+  return "#7B5B2A";
 }
 
 /** Color de texto legible sobre ovrColor */
 export function ovrTextColor(ovr) {
-  return ovr >= 80 && ovr < 90 ? "#231a00" : "#ffffff";
+  return ovrTier(ovr).textColor;
 }
 
 /** Valor de mercado en millones */
