@@ -19,15 +19,19 @@ import { generateCareerImage } from "../utils/careerImage";
 import { legendScore, legendTitle, legendColor } from "../utils/legend";
 import { getCareerAges } from "../utils/gameLogic";
 
-/** Sección colapsable — solo colapsa en mobile, siempre visible en desktop */
-function CollapsibleSection({ title, defaultOpen = true, children }) {
-  const [open, setOpen] = useState(defaultOpen);
+/**
+ * Sección colapsable.
+ * - En desktop: siempre visible.
+ * - En mobile: controlada desde el padre para garantizar que solo una esté abierta
+ *   a la vez (accordion). El padre pasa `open` y `onToggle`.
+ */
+function CollapsibleSection({ title, children, open, onToggle }) {
   return (
     <div className="mb-2">
       {/* Header — solo visible en mobile */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         className="flex w-full items-center justify-between lg:hidden"
         style={{
           padding: "8px 0 6px",
@@ -45,7 +49,7 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
           <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {/* Contenido: en mobile respeta collapsed, en desktop siempre visible */}
+      {/* Contenido: en mobile respeta open, en desktop siempre visible */}
       <div className={open ? "block" : "hidden lg:block"}>
         {children}
       </div>
@@ -54,12 +58,17 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 }
 
 /** Columna izquierda con secciones colapsables en mobile */
-function ColA({ player, natData, posData, marketVal, tPJ, tPJMax, tGLS, tAST, tGC, tVI, isGK, tNTCaps, tNTGls, tNTAst, tNTGc, tNTVi, allTrophies, history }) {
+function ColA({ player, natData, posData, marketVal, tPJ, tPJMax, tGLS, tAST, tGC, tVI, isGK, tNTCaps, tNTGls, tNTAst, tNTGc, tNTVi, allTrophies, history, openSection, setOpenSection, isOver }) {
+  const toggle = (key) => setOpenSection((v) => (v === key ? null : key));
   return (
     <div className="shrink-0 lg:flex lg:flex-col lg:overflow-y-auto lg:pb-2 dark-scroll">
       <PlayerHeader player={player} natData={natData} posData={posData} marketVal={marketVal} />
       {history.length > 0 && (
-        <CollapsibleSection title="Total de carrera" defaultOpen={false}>
+        <CollapsibleSection
+          title="Total de carrera"
+          open={isOver || openSection === "career"}
+          onToggle={() => !isOver && toggle("career")}
+        >
           <StatsBar
             pj={tPJ} pjMax={tPJMax} gls={tGLS} ast={tAST} gc={tGC} vi={tVI}
             isGK={isGK}
@@ -70,7 +79,11 @@ function ColA({ player, natData, posData, marketVal, tPJ, tPJMax, tGLS, tAST, tG
       )}
       {(allTrophies.length > 0 || history.length > 0) && (
         <div className={allTrophies.length === 0 ? "hidden lg:block" : ""}>
-          <CollapsibleSection title={`Vitrina · ${allTrophies.length} trofeo${allTrophies.length !== 1 ? "s" : ""}`} defaultOpen={false}>
+          <CollapsibleSection
+            title={`Vitrina · ${allTrophies.length} trofeo${allTrophies.length !== 1 ? "s" : ""}`}
+            open={isOver || openSection === "vitrina"}
+            onToggle={() => !isOver && toggle("vitrina")}
+          >
             <TrophyCabinet trophies={allTrophies} />
           </CollapsibleSection>
         </div>
@@ -245,6 +258,7 @@ export default function GameScreen({
   canStay,
   celebration,
   realisticMode,
+  autoSimulating,
   onPickClub,
   onSimulate,
   onHandleChoice,
@@ -274,6 +288,10 @@ export default function GameScreen({
   const tNTGc = history.reduce((s, h) => s + (h.nt?.gc || 0), 0);
   const tNTVi = history.reduce((s, h) => s + (h.nt?.vi || 0), 0);
   const allTrophies = history.flatMap((h) => h.trophies || []);
+
+  // Accordion mobile: solo una sección abierta a la vez.
+  const [openSection, setOpenSection] = useState(null);
+  const isSectionOpen = openSection !== null;
 
   const [shareMsg, setShareMsg] = useState("");
   const [sharing, setSharing] = useState(false);
@@ -418,8 +436,10 @@ export default function GameScreen({
         Col 3 (340px): panel de acción actual
         Cada columna scrollea de forma independiente para evitar scroll global.
       */}
-      <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col p-3 lg:grid lg:grid-cols-[360px_1fr_340px] lg:gap-x-4 lg:overflow-hidden lg:p-5"
-        style={{ minHeight: 0 }}>
+      <div
+        className={`mx-auto flex w-full max-w-[1440px] flex-1 flex-col p-3 lg:grid lg:grid-cols-[360px_1fr_340px] lg:gap-x-4 lg:overflow-hidden lg:p-5 ${phase !== PHASES.OVER ? "pb-[55dvh] lg:pb-5" : "pb-4"}`}
+        style={{ minHeight: 0 }}
+      >
 
         {/* Bloque A: jugador — Col 1 */}
         <ColA
@@ -432,10 +452,13 @@ export default function GameScreen({
           tNTCaps={tNTCaps} tNTGls={tNTGls} tNTAst={tNTAst} tNTGc={tNTGc} tNTVi={tNTVi}
           allTrophies={allTrophies}
           history={history}
+          openSection={openSection}
+          setOpenSection={setOpenSection}
+          isOver={phase === PHASES.OVER}
         />
 
         {/* Bloque B: línea de tiempo — Col 2 */}
-        <div className="flex flex-1 flex-col lg:overflow-y-auto lg:pb-2 dark-scroll" style={{ minHeight: 0 }}>
+        <div className={`flex flex-col lg:overflow-y-auto lg:pb-2 dark-scroll ${isSectionOpen ? "flex-1" : ""}`} style={{ minHeight: 0 }}>
           <Timeline
             history={history}
             currentAge={player.age}
@@ -444,11 +467,13 @@ export default function GameScreen({
             natCode={natData?.c}
             nationality={player.nationality}
             ages={getCareerAges(realisticMode)}
+            fillHeight={isSectionOpen}
+            showAll={phase === PHASES.OVER}
           />
         </div>
 
-        {/* Bloque C: acción actual — Col 3 */}
-        <div className="mt-3 shrink-0 pb-6 lg:col-start-3 lg:mt-0 lg:overflow-y-auto lg:pb-2 dark-scroll">
+        {/* Bloque C: fixed al fondo en mobile durante la carrera; normal al terminar */}
+        <div className={`${phase !== PHASES.OVER ? "fixed inset-x-0 bottom-0 z-20 max-h-[55dvh] overflow-y-auto border-t border-zinc-800/60 bg-[#080C14]/95 px-3 pb-4 pt-3 backdrop-blur dark-scroll" : "mt-3 pb-4"} lg:static lg:col-start-3 lg:mt-0 lg:max-h-none lg:border-0 lg:bg-transparent lg:px-0 lg:pb-2 lg:pt-0 lg:backdrop-blur-none`}>
           {headline && phase !== PHASES.OVER && (
             <div
               className="mb-2 flex items-start gap-2"
@@ -578,20 +603,32 @@ export default function GameScreen({
           {phase === PHASES.PLAYING && (
             <button
               type="button"
-              onClick={onSimulate}
-              className="w-full py-3 text-sm font-extrabold transition-colors"
+              onClick={autoSimulating ? undefined : onSimulate}
+              disabled={autoSimulating}
+              className="w-full py-3 text-sm font-extrabold transition-all"
               style={{
-                background: "linear-gradient(135deg,#92750B,#C9A227)",
+                background: autoSimulating
+                  ? "rgba(201,162,39,.25)"
+                  : "linear-gradient(135deg,#92750B,#C9A227)",
                 borderRadius: 8,
-                color: "#080C14",
+                color: autoSimulating ? "rgba(201,162,39,.6)" : "#080C14",
                 fontFamily: "'Barlow Condensed', system-ui, sans-serif",
                 fontSize: 16,
                 letterSpacing: "0.04em",
+                cursor: autoSimulating ? "default" : "pointer",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(1.1)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
             >
-              Simular Temporada · {player.age} años
+              {autoSimulating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity=".3" />
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  Simulando…
+                </span>
+              ) : (
+                `Simular Temporada · ${player.age} años`
+              )}
             </button>
           )}
 

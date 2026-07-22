@@ -61,6 +61,13 @@ export default function useCareerGame() {
   const [state, setState] = useState(() => loadGame() || initialState);
   const hydrated = useRef(false);
 
+  // Auto-simulate: se activa tras pickClub / stay / retorno al primer club.
+  // Usamos una ref para tener siempre la última versión de simulate sin
+  // incluirla como dependencia del effect (evita loop infinito).
+  const autoSimRef = useRef(false);
+  const simulateRef = useRef(null);
+  const [autoSimulating, setAutoSimulating] = useState(false);
+
   const {
     player,
     history,
@@ -85,6 +92,23 @@ export default function useCareerGame() {
     if (state.phase === PHASES.SETUP) clearSave();
     else saveGame(state);
   }, [state]);
+
+  // Mantiene simulateRef actualizado en cada render (sin deps → siempre fresco)
+  useEffect(() => { simulateRef.current = simulate; });
+
+  // Dispara simulate automáticamente cuando la fase pasa a PLAYING y hay una
+  // acción pendiente (pickClub / stay / retorno al primer club).
+  // Espera 500ms para mostrar un breve loading antes de ejecutar.
+  useEffect(() => {
+    if (phase === PHASES.PLAYING && autoSimRef.current) {
+      autoSimRef.current = false;
+      const t = setTimeout(() => {
+        setAutoSimulating(false);
+        simulateRef.current?.();
+      }, 500);
+      return () => clearTimeout(t);
+    }
+  }, [phase]);
 
   const update = (changes) => setState((prev) => ({ ...prev, ...changes }));
 
@@ -217,6 +241,8 @@ export default function useCareerGame() {
         salary: estimateSalary({ ...player, league: offer.league }),
       };
 
+      autoSimRef.current = true;
+      setAutoSimulating(true);
       update({
         player: updatedPlayer,
         firstClub: firstClub || offer.team,
@@ -717,6 +743,8 @@ export default function useCareerGame() {
       const updatedPlayer = { ...player, ...changes };
 
       if (eff.ret) {
+        autoSimRef.current = true;
+        setAutoSimulating(true);
         update({ player: updatedPlayer, message: msg, phase: PHASES.PLAYING });
       } else {
         update({
@@ -731,6 +759,8 @@ export default function useCareerGame() {
   );
 
   const stay = useCallback(() => {
+    autoSimRef.current = true;
+    setAutoSimulating(true);
     update({
       offers: [],
       message: `Te quedás en ${player?.team}`,
@@ -756,6 +786,7 @@ export default function useCareerGame() {
     celebration,
     phase,
     realisticMode,
+    autoSimulating,
     startGame,
     pickClub,
     simulate,
