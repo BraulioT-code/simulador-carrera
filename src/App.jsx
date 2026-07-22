@@ -33,6 +33,7 @@ export default function App() {
             headline={game.headline}
             canStay={game.canStay}
             celebration={game.celebration}
+            realisticMode={game.realisticMode}
             onPickClub={game.pickClub}
             onSimulate={game.simulate}
             onHandleChoice={game.handleChoice}

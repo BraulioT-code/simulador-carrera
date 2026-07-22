@@ -6,6 +6,7 @@ const EVENTS = [
   {
     title: "Lesión muscular",
     w: 0.4,
+    physical: true,
     desc: "Sufriste una lesión en entrenamiento.",
     choices: [
       {
@@ -29,6 +30,7 @@ const EVENTS = [
   {
     title: "Lesión de ligamentos",
     w: 0.25,
+    physical: true,
     desc: "Una entrada dura te dejó fuera varios meses. Cómo encares la recuperación marca tu futuro.",
     choices: [
       {
@@ -140,6 +142,7 @@ const EVENTS = [
   },
   {
     title: "Vida nocturna",
+    physical: true,
     desc: "Te fotografiaron saliendo de fiesta en plena temporada.",
     choices: [
       {

@@ -17,6 +17,7 @@ import { ALL_COUNTRIES, POS_MAP, PHASES, teamTint, getClubRating } from "../data
 import { marketValue } from "../utils/helpers";
 import { generateCareerImage } from "../utils/careerImage";
 import { legendScore, legendTitle, legendColor } from "../utils/legend";
+import { getCareerAges } from "../utils/gameLogic";
 
 /** Sección colapsable — solo colapsa en mobile, siempre visible en desktop */
 function CollapsibleSection({ title, defaultOpen = true, children }) {
@@ -243,6 +244,7 @@ export default function GameScreen({
   headline,
   canStay,
   celebration,
+  realisticMode,
   onPickClub,
   onSimulate,
   onHandleChoice,
@@ -441,6 +443,7 @@ export default function GameScreen({
             isGK={isGK}
             natCode={natData?.c}
             nationality={player.nationality}
+            ages={getCareerAges(realisticMode)}
           />
         </div>
 

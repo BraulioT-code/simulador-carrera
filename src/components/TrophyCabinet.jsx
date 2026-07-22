@@ -79,9 +79,9 @@ export default function TrophyCabinet({ trophies }) {
       >
         Vitrina · {trophies.length} {trophies.length === 1 ? "Trofeo" : "Trofeos"}
       </div>
-      <div className="flex flex-wrap items-end gap-2.5">
+      <div className="grid grid-cols-5 gap-x-2 gap-y-3">
         {grouped.map((g, i) => (
-          <div key={i} className="flex flex-col items-center text-center" style={{ width: 52 }}>
+          <div key={i} className="flex flex-col items-center text-center">
             <div
               style={{
                 width: 44,
@@ -102,7 +102,7 @@ export default function TrophyCabinet({ trophies }) {
                 fontWeight: 500,
                 lineHeight: 1.3,
                 color: "rgba(255,255,255,.35)",
-                maxWidth: 52,
+                width: "100%",
               }}
             >
               {g.n}

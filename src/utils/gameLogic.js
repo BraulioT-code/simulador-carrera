@@ -2,8 +2,59 @@ import { LEAGUES } from "../data";
 import { getClubRating } from "../data/clubRatings";
 import { randInt, clamp } from "./helpers";
 
+// ─── Modo realista ──────────────────────────────────────────────────────────
+
+/** Edades en el sistema clásico (bloques de 2 años en toda la carrera) */
+export const AGES_CLASSIC = [16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38];
+
+/** Edades en modo realista (2 años hasta los 32, luego 1 año por temporada) */
+export const AGES_REALISTIC = [16, 18, 20, 22, 24, 26, 28, 30, 32, 33, 34, 35, 36, 37, 38];
+
+/** Array de edades según el modo de juego */
+export function getCareerAges(realisticMode = false) {
+  return realisticMode ? AGES_REALISTIC : AGES_CLASSIC;
+}
+
+/** Años que representa un bloque de simulación para la edad dada */
+export function yearsInBlock(age, realisticMode = false) {
+  return realisticMode && age >= 32 ? 1 : 2;
+}
+
+/** Multiplicador de boosts OVR por edad (eventos, premios) */
+export function ageBoostMultiplier(age) {
+  if (age <= 27) return 1.0;
+  if (age <= 31) return 0.8;
+  if (age <= 34) return 0.5;
+  return 0.25;
+}
+
+/** Multiplicador de peso para eventos físicos negativos */
+export function physicalDebuffMultiplier(age) {
+  if (age < 32) return 1.0;
+  if (age <= 33) return 1.1;
+  if (age <= 35) return 1.25;
+  return 1.5;
+}
+
 /**
- * Genera estadísticas de temporada (2 años) según posición, OVR y edad.
+ * Techo suave de OVR por edad (resistencia al crecimiento, no límite rígido).
+ * Cuanto más cerca esté el jugador del techo, más difícil es seguir subiendo.
+ */
+export function softCeiling(age) {
+  const table = {
+    16: 58, 17: 62, 18: 66, 19: 70, 20: 74, 21: 77,
+    22: 81, 23: 84, 24: 87, 25: 89, 26: 91, 27: 92,
+    28: 94, 29: 95, 30: 95, 31: 95, 32: 95, 33: 94,
+    34: 92, 35: 90, 36: 88, 37: 85, 38: 82,
+  };
+  return table[age] ?? (age < 16 ? 55 : 80);
+}
+
+// ─── Estadísticas ──────────────────────────────────────────────────────────
+
+/**
+ * Genera estadísticas de temporada según posición, OVR y edad.
+ * El parámetro `years` indica cuántos años representa el bloque (1 ó 2).
  */
 /**
  * Producción esperada por partido según la posición (goles / asistencias).
@@ -51,11 +102,12 @@ function moraleFactor(morale) {
   return 1 + ((morale ?? 70) - 70) / 400; // 100→1.075 · 40→0.925
 }
 
-export function generateStats(position, ovr, age, morale = 70) {
+export function generateStats(position, ovr, age, morale = 70, years = 2) {
   const f = skillFactor(ovr);
   const mf = moraleFactor(morale);
-  const maxPJ = age <= 17 ? 45 : age <= 19 ? 70 : age >= 34 ? 65 : 85;
-  const minPJ = age <= 17 ? 15 : age <= 19 ? 35 : age >= 34 ? 25 : 50;
+  const scale = years === 1 ? 0.5 : 1;
+  const maxPJ = Math.round((age <= 17 ? 45 : age <= 19 ? 70 : age >= 34 ? 65 : 85) * scale);
+  const minPJ = Math.round((age <= 17 ? 15 : age <= 19 ? 35 : age >= 34 ? 25 : 50) * scale);
   // La moral baja recorta minutos; la alta ayuda a ser titular fijo
   const pjMoral = 1 + ((morale ?? 70) - 70) / 600;
   const pj = clamp(
@@ -475,7 +527,7 @@ export function resolveTournamentRun(player, type = "wc") {
  * Cada trofeo es { t: tipo, n: nombre } — ej: { t: "liga", n: "Liga BetPlay" }.
  * Los premios individuales exigen números reales, no solo OVR.
  */
-export function generateTrophies(player, stats = null, rating = 5) {
+export function generateTrophies(player, stats = null, rating = 5, years = 2) {
   const trophies = [];
   const leagueData = LEAGUES[player.league];
 
@@ -507,9 +559,9 @@ export function generateTrophies(player, stats = null, rating = 5) {
     trophies.push({ t: "ballon", n: "Balón de Oro" });
   }
 
-  // Bota de Oro: es para el MÁXIMO GOLEADOR — exige una barbaridad de goles
-  // (el bloque cubre 2 temporadas, ~45 goles ≈ 22-23 por año)
-  if (stats && stats.gls >= 55 && Math.random() < 0.45) {
+  // Bota de Oro: máximo goleador mundial; umbral escala con el bloque
+  const botaThreshold = years === 1 ? 27 : 55;
+  if (stats && stats.gls >= botaThreshold && Math.random() < 0.45) {
     trophies.push({ t: "bota", n: "Bota de Oro" });
   }
 
@@ -535,7 +587,7 @@ export const AWARD_BOOSTS = {
  * Premios individuales de la temporada según el rendimiento real.
  * Se calculan aparte de los títulos de equipo.
  */
-export function generateAwards(player, stats, rating, age) {
+export function generateAwards(player, stats, rating, age, years = 2) {
   const awards = [];
   const leagueData = LEAGUES[player.league];
   const prestige = leagueData?.p ?? 60;
@@ -554,13 +606,15 @@ export function generateAwards(player, stats, rating, age) {
     awards.push({ t: "eoty", n: `Equipo del Año · ${lg}` });
   }
 
-  // Goleador de la liga (delanteros): números de goleador de verdad
-  if (!isGK && stats.gls >= 40 && Math.random() < 0.55) {
+  // Goleador de la liga: umbral escala por bloque (2 años → 40, 1 año → 20)
+  const glsThreshold = years === 1 ? 20 : 40;
+  if (!isGK && stats.gls >= glsThreshold && Math.random() < 0.55) {
     awards.push({ t: "bota", n: `Goleador de la ${lg}` });
   }
 
-  // Rey de las Asistencias (creativos): reparte muchísimo juego
-  if (isPlaymaker && stats.ast >= 28 && Math.random() < 0.55) {
+  // Rey de Asistencias: escala por bloque (2 años → 28, 1 año → 14)
+  const astThreshold = years === 1 ? 14 : 28;
+  if (isPlaymaker && stats.ast >= astThreshold && Math.random() < 0.55) {
     awards.push({ t: "asis", n: `Rey de Asistencias · ${lg}` });
   }
 
@@ -587,18 +641,17 @@ export function generateAwards(player, stats, rating, age) {
 }
 
 /**
- * Estadísticas con la selección en el bloque de 2 años.
- * Se compone de eliminatorias (según confederación) + amistosos.
- * Los partidos de torneo se suman aparte al resolverse (ver addNationalCompetition).
+ * Estadísticas con la selección en el bloque.
+ * `years` = 1 (modo realista ≥32) ó 2 (clásico).
  */
-export function generateNationalStats(player, region) {
+export function generateNationalStats(player, region, years = 2) {
   const [qmin, qmax] = QUALIFIERS_PER_BLOCK[region] || [3, 5];
-  // Titularidad en la selección según nivel: los mejores juegan casi todo
+  const scale = years === 1 ? 0.5 : 1;
   const share = clamp((player.overall - 58) / 30, 0.35, 1);
 
   const comps = [
-    { n: "Eliminatorias", pj: Math.max(1, Math.round(randInt(qmin, qmax) * share)) },
-    { n: "Amistosos", pj: Math.max(1, Math.round(randInt(2, 5) * share)) },
+    { n: "Eliminatorias", pj: Math.max(1, Math.round(randInt(Math.max(1, Math.round(qmin * scale)), Math.max(1, Math.round(qmax * scale))) * share)) },
+    { n: "Amistosos", pj: Math.max(1, Math.round(randInt(Math.max(1, Math.round(2 * scale)), Math.max(1, Math.round(5 * scale))) * share)) },
   ];
 
   return withNationalTotals({ comps, gls: 0, ast: 0, gc: 0, vi: 0 }, player);
@@ -701,21 +754,70 @@ export function evaluateSeason(player, stats) {
 
 /**
  * Calcula el cambio de OVR según la edad y el rendimiento de la temporada.
- * Una gran temporada (rating >= 8) acelera el crecimiento; una muy mala lo frena.
+ *
+ * En modo realista (realisticMode=true):
+ * - La progresión base sigue la curva pedida (crecimiento gradual → pico → declive).
+ * - Se aplica un soft ceiling: cuanto más cerca del techo etario, más difícil crecer.
+ * - El parámetro currentOvr es necesario para el soft ceiling.
+ *
+ * En modo clásico (por defecto): mismo comportamiento que antes.
  */
-export function calculateOvrDelta(age, rating = null) {
+export function calculateOvrDelta(age, rating = null, currentOvr = null, realisticMode = false) {
   let delta;
-  if (age < 20) delta = randInt(3, 7);
-  else if (age < 24) delta = randInt(2, 5);
-  else if (age < 28) delta = randInt(0, 3);
-  else if (age < 31) delta = randInt(-1, 1);
-  else if (age < 34) delta = randInt(-3, 0);
-  else delta = randInt(-5, -1);
 
+  if (!realisticMode) {
+    // ── Clásico (sin cambios) ──────────────────────────────────────────
+    if (age < 20) delta = randInt(3, 7);
+    else if (age < 24) delta = randInt(2, 5);
+    else if (age < 28) delta = randInt(0, 3);
+    else if (age < 31) delta = randInt(-1, 1);
+    else if (age < 34) delta = randInt(-3, 0);
+    else delta = randInt(-5, -1);
+
+    if (rating != null) {
+      if (rating >= 8) delta += 2;
+      else if (rating >= 6.5) delta += 1;
+      else if (rating < 3) delta -= 1;
+    }
+    return delta;
+  }
+
+  // ── Realista ──────────────────────────────────────────────────────────
+  // Bloques de 2 años (<32) o 1 año (≥32).
+  // Los rangos ya están calibrados para el tamaño del bloque.
+  if (age < 20)       delta = randInt(3, 6);   // 16-19: gran crecimiento
+  else if (age < 24)  delta = randInt(2, 4);   // 20-23: crecimiento alto
+  else if (age < 28)  delta = randInt(1, 3);   // 24-27: moderado
+  else if (age < 30)  delta = randInt(0, 2);   // 28-29: pequeño
+  else if (age < 32)  delta = randInt(-1, 1);  // 30-31: estabilidad
+  else if (age <= 33) delta = randInt(-1, 0);  // 32-33: ligera caída (1 año)
+  else if (age <= 35) delta = randInt(-2, -1); // 34-35: caída media (1 año)
+  else                delta = randInt(-3, -1); // 36-38: caída fuerte (1 año)
+
+  // Modificador por rendimiento (escalado para el tramo)
   if (rating != null) {
-    if (rating >= 8) delta += 2;
+    const isLate = age >= 32;
+    if (rating >= 8)        delta += isLate ? 1 : 2;
     else if (rating >= 6.5) delta += 1;
-    else if (rating < 3) delta -= 1;
+    else if (rating < 3)    delta -= 1;
+  }
+
+  // ── Soft ceiling: resistencia al crecimiento cerca del techo etario ──
+  if (currentOvr != null && delta > 0) {
+    const ceiling = softCeiling(age);
+    const gap = ceiling - currentOvr;
+    if (gap <= 0) {
+      // Por encima del techo: empuja a la baja
+      delta = Math.min(delta, Math.floor(gap / 2));
+    } else if (gap === 1) {
+      delta = Math.min(delta, 1);
+    } else if (gap < 5) {
+      // Muy cerca: crecimiento muy reducido
+      delta = Math.min(delta, 1);
+    } else if (gap < 8) {
+      // Cerca: crecimiento algo frenado
+      delta = Math.min(delta, Math.ceil(delta * (gap / 8)));
+    }
   }
 
   return delta;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AGES, ALL_COUNTRIES, getTeamColor, teamTint } from "../data";
+import { AGES as AGES_DEFAULT, ALL_COUNTRIES, getTeamColor, teamTint } from "../data";
 import OvrBadge from "./OvrBadge";
 import Trophy from "./Trophy";
 import ClubLogo from "./ClubLogo";
@@ -196,7 +196,9 @@ export default function Timeline({
   isGK = false,
   natCode,
   nationality,
+  ages,
 }) {
+  const AGES = ages ?? AGES_DEFAULT;
   const [openAge, setOpenAge] = useState(null);
   const lastAge = history.length ? history[history.length - 1].age : null;
 
