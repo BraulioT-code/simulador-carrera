@@ -61,24 +61,28 @@ function CollapsibleSection({ title, children, open, onToggle }) {
 function ColA({ player, natData, posData, marketVal, tPJ, tPJMax, tGLS, tAST, tGC, tVI, isGK, tNTCaps, tNTGls, tNTAst, tNTGc, tNTVi, allTrophies, history, openSection, setOpenSection, isOver }) {
   const toggle = (key) => setOpenSection((v) => (v === key ? null : key));
   return (
-    <div className="shrink-0 lg:flex lg:flex-col lg:overflow-y-auto lg:pb-2 dark-scroll">
+    <div className="shrink-0 px-3 pt-3 lg:px-0 lg:pt-0 lg:flex lg:flex-col lg:overflow-y-auto lg:pb-2 dark-scroll">
       <PlayerHeader player={player} natData={natData} posData={posData} marketVal={marketVal} />
+      {/* Total de carrera: oculto en mobile salvo al terminar carrera */}
       {history.length > 0 && (
-        <CollapsibleSection
-          title="Total de carrera"
-          open={isOver || openSection === "career"}
-          onToggle={() => !isOver && toggle("career")}
-        >
-          <StatsBar
-            pj={tPJ} pjMax={tPJMax} gls={tGLS} ast={tAST} gc={tGC} vi={tVI}
-            isGK={isGK}
-            ntCaps={tNTCaps} ntGls={tNTGls} ntAst={tNTAst} ntGc={tNTGc} ntVi={tNTVi}
-            natCode={natData?.c}
-          />
-        </CollapsibleSection>
+        <div className={isOver ? "" : "hidden lg:block"}>
+          <CollapsibleSection
+            title="Total de carrera"
+            open={isOver || openSection === "career"}
+            onToggle={() => !isOver && toggle("career")}
+          >
+            <StatsBar
+              pj={tPJ} pjMax={tPJMax} gls={tGLS} ast={tAST} gc={tGC} vi={tVI}
+              isGK={isGK}
+              ntCaps={tNTCaps} ntGls={tNTGls} ntAst={tNTAst} ntGc={tNTGc} ntVi={tNTVi}
+              natCode={natData?.c}
+            />
+          </CollapsibleSection>
+        </div>
       )}
+      {/* Vitrina: oculta en mobile salvo al terminar carrera */}
       {(allTrophies.length > 0 || history.length > 0) && (
-        <div className={allTrophies.length === 0 ? "hidden lg:block" : ""}>
+        <div className={isOver ? (allTrophies.length === 0 ? "hidden" : "") : "hidden lg:block"}>
           <CollapsibleSection
             title={`Vitrina · ${allTrophies.length} trofeo${allTrophies.length !== 1 ? "s" : ""}`}
             open={isOver || openSection === "vitrina"}
@@ -293,6 +297,17 @@ export default function GameScreen({
   const [openSection, setOpenSection] = useState(null);
   const isSectionOpen = openSection !== null;
 
+  // showOver: verdadero solo cuando la carrera terminó Y la celebración ya se
+  // resolvió (+ 300 ms de margen). Evita que el layout final aparezca mientras
+  // todavía se reproducen animaciones de trofeos.
+  const [showOver, setShowOver] = useState(false);
+  useEffect(() => {
+    if (phase !== PHASES.OVER) { setShowOver(false); return; }
+    if (celebration) return; // espera a que se dispare onDone
+    const t = setTimeout(() => setShowOver(true), 300);
+    return () => clearTimeout(t);
+  }, [phase, celebration]);
+
   const [shareMsg, setShareMsg] = useState("");
   const [sharing, setSharing] = useState(false);
   const [showHof, setShowHof] = useState(false);
@@ -407,7 +422,10 @@ export default function GameScreen({
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col lg:h-[100dvh] lg:overflow-hidden">
+    <div className={!showOver
+      ? "flex h-[100dvh] flex-col overflow-hidden"
+      : "flex min-h-[100dvh] flex-col lg:h-[100dvh] lg:overflow-hidden"
+    }>
       <TrophyCelebration trophy={showCelebration ? celebration : null} onDone={dismissCelebration} />
       {showHof && <HallOfFame onClose={() => setShowHof(false)} />}
       {showRanking && (
@@ -437,7 +455,7 @@ export default function GameScreen({
         Cada columna scrollea de forma independiente para evitar scroll global.
       */}
       <div
-        className={`mx-auto flex w-full max-w-[1440px] flex-1 flex-col p-3 lg:grid lg:grid-cols-[360px_1fr_340px] lg:gap-x-4 lg:overflow-hidden lg:p-5 ${phase !== PHASES.OVER ? "pb-[55dvh] lg:pb-5" : "pb-4"}`}
+        className={`mx-auto flex w-full max-w-[1440px] flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[360px_1fr_340px] lg:gap-x-4 lg:overflow-hidden lg:p-5 ${!showOver ? "" : "p-3 pb-4 lg:pb-5"}`}
         style={{ minHeight: 0 }}
       >
 
@@ -454,11 +472,11 @@ export default function GameScreen({
           history={history}
           openSection={openSection}
           setOpenSection={setOpenSection}
-          isOver={phase === PHASES.OVER}
+          isOver={showOver}
         />
 
-        {/* Bloque B: línea de tiempo — Col 2 */}
-        <div className={`flex flex-col lg:overflow-y-auto lg:pb-2 dark-scroll ${isSectionOpen ? "flex-1" : ""}`} style={{ minHeight: 0 }}>
+        {/* Bloque B: línea de tiempo — flex-1 en mobile (banda central) */}
+        <div className="flex flex-1 flex-col overflow-hidden px-3 lg:overflow-y-auto lg:px-0 lg:pb-2 dark-scroll" style={{ minHeight: 0 }}>
           <Timeline
             history={history}
             currentAge={player.age}
@@ -467,16 +485,16 @@ export default function GameScreen({
             natCode={natData?.c}
             nationality={player.nationality}
             ages={getCareerAges(realisticMode)}
-            fillHeight={isSectionOpen}
-            showAll={phase === PHASES.OVER}
+            fillHeight={!showOver}
+            showAll={showOver}
           />
         </div>
 
-        {/* Bloque C: fixed al fondo en mobile durante la carrera; normal al terminar */}
-        <div className={`${phase !== PHASES.OVER ? "fixed inset-x-0 bottom-0 z-20 max-h-[55dvh] overflow-y-auto border-t border-zinc-800/60 bg-[#080C14]/95 px-3 pb-4 pt-3 backdrop-blur dark-scroll" : "mt-3 pb-4"} lg:static lg:col-start-3 lg:mt-0 lg:max-h-none lg:border-0 lg:bg-transparent lg:px-0 lg:pb-2 lg:pt-0 lg:backdrop-blur-none`}>
+        {/* Bloque C: banda inferior fija en mobile; col 3 en desktop */}
+        <div className={`${!showOver ? "shrink-0 max-h-[42dvh] overflow-y-auto border-t border-zinc-800/60 px-3 pb-4 pt-3 dark-scroll" : "mt-3 pb-4"} lg:col-start-3 lg:mt-0 lg:max-h-none lg:shrink-0 lg:border-0 lg:px-0 lg:pb-2 lg:pt-0 lg:overflow-y-auto dark-scroll`}>
           {headline && phase !== PHASES.OVER && (
             <div
-              className="mb-2 flex items-start gap-2"
+              className="mb-2 hidden items-start gap-2 lg:flex"
               style={{
                 background: "rgba(255,255,255,.025)",
                 border: "1px solid rgba(255,255,255,.06)",
